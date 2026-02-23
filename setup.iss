@@ -4,7 +4,7 @@
 ; Pass /dMyVersion=X.Y.Z to override the version at build time.
 
 #ifndef MyVersion
-  #define MyVersion "1.2.0"
+  #define MyVersion "1.2.1"
 #endif
 
 [Setup]
