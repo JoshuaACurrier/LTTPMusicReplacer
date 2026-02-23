@@ -119,13 +119,15 @@
                         </DataGridTemplateColumn>
 
                         <!-- Track name -->
-                        <DataGridTemplateColumn Header="Track" Width="210" CanUserResize="True">
+                        <DataGridTemplateColumn Header="Track" Width="220" CanUserResize="True">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:TrackSlot}">
                                     <TextBlock Text="{Binding Name}"
                                                FontSize="13" FontWeight="Medium"
                                                Foreground="{StaticResource TextBrush}"
-                                               VerticalAlignment="Center"/>
+                                               VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding Name}"/>
                                 </DataTemplate>
                             </DataGridTemplateColumn.CellTemplate>
                         </DataGridTemplateColumn>
