@@ -1,0 +1,332 @@
+<Window x:Class="LTTPMusicReplacer.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:conv="clr-namespace:LTTPMusicReplacer.Converters"
+        xmlns:models="clr-namespace:LTTPMusicReplacer.Models"
+        Title="ALttP MSU-1 Music Switcher"
+        Icon="Resources/icon.ico"
+        Width="1100" Height="800"
+        MinWidth="800" MinHeight="560"
+        Background="{StaticResource BgBrush}"
+        Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI">
+
+    <Window.Resources>
+        <conv:NullToVisibilityConverter x:Key="NullToVis"/>
+        <conv:NullToVisibilityInverseConverter x:Key="NullToVisInv"/>
+        <conv:ErrorToBrushConverter x:Key="ErrToBrush"/>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
+        <conv:BoolToVisibilityInverseConverter x:Key="BoolToVisInv"/>
+    </Window.Resources>
+
+    <DockPanel>
+        <!-- ═══════════════════════ HEADER / TOOLBAR ═══════════════════════ -->
+        <Border DockPanel.Dock="Top"
+                Background="#14141A"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="16,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: app name + ROM info -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <TextBlock Text="ALttP MSU-1 Music Switcher"
+                               FontSize="15" FontWeight="Bold"
+                               Foreground="{StaticResource TextBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,16,0"/>
+
+                    <Button x:Name="SelectRomButton"
+                            Content="Select ROM..."
+                            Style="{StaticResource AccentButton}"
+                            Click="SelectRom_Click"/>
+
+                    <!-- ROM info (shown when ROM is selected) -->
+                    <StackPanel Orientation="Horizontal"
+                                Visibility="{Binding RomBaseName, Converter={StaticResource NullToVis}}"
+                                VerticalAlignment="Center"
+                                Margin="12,0,0,0">
+                        <TextBlock Text="{Binding RomBaseName}"
+                                   FontWeight="SemiBold" FontSize="13"
+                                   Foreground="{StaticResource TextBrush}"
+                                   VerticalAlignment="Center"/>
+                        <Button Content="Change"
+                                Style="{StaticResource DarkButton}"
+                                Margin="8,0,0,0"
+                                Padding="8,4"
+                                Click="SelectRom_Click"/>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Right: Config buttons -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button Content="Load Config"
+                            Style="{StaticResource DarkButton}"
+                            Margin="0,0,8,0"
+                            Click="LoadConfig_Click"/>
+                    <Button Content="Save Config"
+                            Style="{StaticResource DarkButton}"
+                            Margin="0,0,8,0"
+                            IsEnabled="{Binding HasRom}"
+                            Click="SaveConfig_Click"/>
+                    <!-- Config message -->
+                    <TextBlock x:Name="ConfigMessage"
+                               VerticalAlignment="Center"
+                               FontSize="12"
+                               Visibility="Collapsed"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+        <Grid Margin="16">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="200"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="130" MinHeight="80"/>
+            </Grid.RowDefinitions>
+
+            <!-- ── Track List ── -->
+            <Border Grid.Row="0"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    ClipToBounds="True">
+                <DataGrid x:Name="TrackGrid"
+                          Style="{StaticResource DarkDataGrid}"
+                          ItemsSource="{Binding Tracks}"
+                          BorderThickness="0"
+                          RowHeight="36">
+
+                    <DataGrid.Columns>
+                        <!-- Slot number -->
+                        <DataGridTemplateColumn Header="Slot" Width="52" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:TrackSlot}">
+                                    <TextBlock Text="{Binding SlotDisplay}"
+                                               FontWeight="Bold" FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               FontFamily="Consolas"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Track name -->
+                        <DataGridTemplateColumn Header="Track" Width="210" CanUserResize="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:TrackSlot}">
+                                    <TextBlock Text="{Binding Name}"
+                                               FontSize="13" FontWeight="Medium"
+                                               Foreground="{StaticResource TextBrush}"
+                                               VerticalAlignment="Center"/>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Assigned file -->
+                        <DataGridTemplateColumn Header="Assigned File" Width="*" CanUserResize="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:TrackSlot}">
+                                    <Grid VerticalAlignment="Center">
+                                        <!-- Assigned filename -->
+                                        <TextBlock Visibility="{Binding HasFile, Converter={StaticResource BoolToVis}}"
+                                                   Text="{Binding FileName}"
+                                                   FontFamily="Consolas" FontSize="12"
+                                                   Foreground="{Binding ValidationError, Converter={StaticResource ErrToBrush}}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center"
+                                                   ToolTip="{Binding ValidationError}"/>
+                                        <!-- Unassigned placeholder -->
+                                        <TextBlock Visibility="{Binding HasFile, Converter={StaticResource BoolToVisInv}}"
+                                                   Text="unassigned"
+                                                   FontStyle="Italic" FontSize="12"
+                                                   Foreground="{StaticResource TextFaintBrush}"
+                                                   VerticalAlignment="Center"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+
+                        <!-- Actions -->
+                        <DataGridTemplateColumn Header="Actions" Width="180" CanUserResize="False">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate DataType="{x:Type models:TrackSlot}">
+                                    <StackPanel Orientation="Horizontal"
+                                                HorizontalAlignment="Right"
+                                                VerticalAlignment="Center"
+                                                Margin="0,0,6,0">
+
+                                        <!-- Play/Stop button (only when file assigned) -->
+                                        <Button Visibility="{Binding HasFile, Converter={StaticResource BoolToVis}}"
+                                                Content="{Binding PlayButtonText}"
+                                                Style="{StaticResource IconButton}"
+                                                Margin="0,0,6,0"
+                                                CommandParameter="{Binding}"
+                                                Click="PlayStop_Click"
+                                                ToolTip="Preview track"/>
+
+                                        <!-- Replace / Pick File -->
+                                        <Button Padding="8,4" FontSize="12"
+                                                Margin="0,0,6,0"
+                                                CommandParameter="{Binding}"
+                                                Click="Replace_Click">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource DarkButton}">
+                                                    <Setter Property="Content" Value="Pick File"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasFile}" Value="True">
+                                                            <Setter Property="Content" Value="Replace"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <!-- Clear (only when file assigned) -->
+                                        <Button Visibility="{Binding HasFile, Converter={StaticResource BoolToVis}}"
+                                                Content="✕"
+                                                Style="{StaticResource ClearButton}"
+                                                CommandParameter="{Binding}"
+                                                Click="Clear_Click"
+                                                ToolTip="Remove assignment"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Border>
+
+            <!-- ── Apply Section ── -->
+            <Border Grid.Row="1"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="16,12"
+                    Margin="0,12,0,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Output folder row -->
+                    <TextBlock Grid.Row="0"
+                               Text="OUTPUT FOLDER (MSU PACK DESTINATION)"
+                               Style="{StaticResource SectionLabel}"/>
+
+                    <Grid Grid.Row="1" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0"
+                                Background="{StaticResource SurfaceAltBrush}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="10,6"
+                                Margin="0,0,8,0"
+                                MinHeight="34">
+                            <TextBlock Foreground="{StaticResource TextSecondaryBrush}"
+                                       FontFamily="Consolas" FontSize="12"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding OutputDir}"/>
+                                        <Setter Property="FontStyle" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding OutputDir}" Value="{x:Null}">
+                                                <Setter Property="Text" Value="No output folder selected"/>
+                                                <Setter Property="FontStyle" Value="Italic"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Border>
+
+                        <Button Grid.Column="1"
+                                Content="Browse..."
+                                Style="{StaticResource DarkButton}"
+                                Padding="12,6"
+                                Click="BrowseOutputDir_Click"/>
+                    </Grid>
+
+                    <!-- Apply row -->
+                    <Grid Grid.Row="2">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Button x:Name="ApplyButton"
+                                Grid.Column="0"
+                                Content="Apply to ROM"
+                                Style="{StaticResource AccentButton}"
+                                IsEnabled="{Binding CanApply}"
+                                Click="Apply_Click"/>
+
+                        <TextBlock Grid.Column="1"
+                                   Text="{Binding AssignedCountText}"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="12,0,0,0"/>
+
+                        <!-- Success message -->
+                        <TextBlock x:Name="ApplySuccessText"
+                                   Grid.Column="2"
+                                   FontSize="12"
+                                   Foreground="{StaticResource SuccessBrush}"
+                                   VerticalAlignment="Center"
+                                   HorizontalAlignment="Right"
+                                   Visibility="Collapsed"/>
+                    </Grid>
+
+                    <!-- Progress bar -->
+                    <Grid Grid.Row="3" x:Name="ProgressSection" Visibility="Collapsed" Margin="0,8,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+                        <ProgressBar x:Name="ApplyProgress"
+                                     Grid.Row="0"
+                                     Style="{StaticResource DarkProgressBar}"
+                                     Minimum="0" Maximum="100" Value="0"/>
+                        <TextBlock x:Name="ProgressStepText"
+                                   Grid.Row="1"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,4,0,0"/>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ── Log Viewer ── -->
+            <Border Grid.Row="2"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    ClipToBounds="True">
+                <TextBox x:Name="LogBox"
+                         Style="{StaticResource LogTextBox}"
+                         BorderThickness="0"/>
+            </Border>
+        </Grid>
+    </DockPanel>
+</Window>

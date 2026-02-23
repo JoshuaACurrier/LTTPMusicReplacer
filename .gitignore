@@ -1,0 +1,36 @@
+# .NET build output
+bin/
+obj/
+
+# Published EXE output
+publish/
+
+# Installer output
+installer/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docview
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# NuGet
+*.nupkg
+packages/
+nuget.config.local
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs / temp
+*.log
+*.tmp
