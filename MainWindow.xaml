@@ -218,6 +218,8 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <!-- Output folder row -->
@@ -266,8 +268,20 @@
                                 Click="BrowseOutputDir_Click"/>
                     </Grid>
 
+                    <!-- Base name row -->
+                    <TextBlock Grid.Row="2"
+                               Text="OUTPUT BASE NAME"
+                               Style="{StaticResource SectionLabel}"/>
+
+                    <TextBox Grid.Row="3"
+                             Style="{StaticResource DarkTextBox}"
+                             Text="{Binding OutputBaseName, UpdateSourceTrigger=PropertyChanged}"
+                             FontFamily="Consolas"
+                             Margin="0,0,0,10"
+                             ToolTip="File name stem used for all output files (e.g. myrom → myrom.sfc, myrom.msu, myrom-2.pcm)"/>
+
                     <!-- Apply row -->
-                    <Grid Grid.Row="2">
+                    <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -299,7 +313,7 @@
                     </Grid>
 
                     <!-- Progress bar -->
-                    <Grid Grid.Row="3" x:Name="ProgressSection" Visibility="Collapsed" Margin="0,8,0,0">
+                    <Grid Grid.Row="5" x:Name="ProgressSection" Visibility="Collapsed" Margin="0,8,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>

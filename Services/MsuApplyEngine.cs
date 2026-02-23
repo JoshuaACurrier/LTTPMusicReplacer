@@ -6,7 +6,8 @@ public record ApplyRequest(
     string RomSourcePath,
     string OutputDir,
     IReadOnlyDictionary<string, string> Tracks, // slot -> pcm path
-    OverwriteMode OverwriteMode
+    OverwriteMode OverwriteMode,
+    string? OutputBaseName = null // overrides ROM filename stem for all output files
 );
 
 public enum OverwriteMode { Ask, Overwrite, Skip }
@@ -49,7 +50,9 @@ public class ApplyEngine
 
         // STEP 2 — Compute output names
         string romExt = Path.GetExtension(req.RomSourcePath);
-        string baseName = Path.GetFileNameWithoutExtension(req.RomSourcePath);
+        string baseName = !string.IsNullOrWhiteSpace(req.OutputBaseName)
+            ? req.OutputBaseName.Trim()
+            : Path.GetFileNameWithoutExtension(req.RomSourcePath);
         string romDest = Path.Combine(req.OutputDir, baseName + romExt);
         string msuDest = Path.Combine(req.OutputDir, baseName + ".msu");
         var pcmDests = sortedSlots

@@ -43,7 +43,7 @@ jobs:
         shell: cmd
         run: |
           mkdir installer
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss /dMyVersion=${{ steps.version.outputs.VERSION }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -64,5 +64,5 @@ jobs:
             - Windows 10 version 1809 or later (64-bit)
             - No .NET runtime required — fully self-contained
           files: |
-            installer/LTTPMusicReplacerSetup-1.0.0-win64.exe
+            installer/LTTPMusicReplacerSetup-*-win64.exe
             bin/Release/net8.0-windows/win-x64/publish/LTTPMusicReplacer.exe

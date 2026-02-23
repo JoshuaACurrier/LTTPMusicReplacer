@@ -1,12 +1,17 @@
 ; ALttP MSU-1 Music Switcher — Inno Setup Script
 ; Compile with: "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 ; Or just run publish.bat which handles everything automatically.
+; Pass /dMyVersion=X.Y.Z to override the version at build time.
+
+#ifndef MyVersion
+  #define MyVersion "1.1.0"
+#endif
 
 [Setup]
 AppId={{7C4B2A8F-3D1E-4F9C-A6B5-8E2D7F3C5A1B}
 AppName=ALttP MSU-1 Music Switcher
-AppVersion=1.0.0
-AppVerName=ALttP MSU-1 Music Switcher 1.0.0
+AppVersion={#MyVersion}
+AppVerName=ALttP MSU-1 Music Switcher {#MyVersion}
 AppPublisher=LTTPMusicReplacer
 AppPublisherURL=
 AppSupportURL=
@@ -20,7 +25,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 
 ; Output
 OutputDir=installer
-OutputBaseFilename=LTTPMusicReplacerSetup-1.0.0-win64
+OutputBaseFilename=LTTPMusicReplacerSetup-{#MyVersion}-win64
 SetupIconFile=Resources\icon.ico
 UninstallDisplayIcon={app}\LTTPMusicReplacer.exe
 

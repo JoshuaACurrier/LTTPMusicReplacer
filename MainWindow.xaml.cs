@@ -24,6 +24,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     // ── Observable state ──────────────────────────────────────────────────
     private string? _romPath;
     private string? _romBaseName;
+    private string? _outputBaseName;
     private string? _outputDir;
     private bool _isApplying;
     private bool _isConverting;
@@ -34,6 +35,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         get => _romBaseName;
         private set { _romBaseName = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasRom)); OnPropertyChanged(nameof(CanApply)); }
+    }
+
+    public string? OutputBaseName
+    {
+        get => _outputBaseName;
+        set { _outputBaseName = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanApply)); }
     }
 
     public string? OutputDir
@@ -47,6 +54,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public bool CanApply => _romPath is not null
                          && _outputDir is not null
                          && Tracks.Any(t => t.HasFile)
+                         && !string.IsNullOrWhiteSpace(_outputBaseName)
                          && !_isApplying
                          && !_isConverting;
 
@@ -123,6 +131,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _romPath = dlg.FileName;
             RomBaseName = Path.GetFileNameWithoutExtension(dlg.FileName);
+            OutputBaseName = RomBaseName;
             AppendLog($"ROM selected: {_romPath}");
         }
     }
@@ -367,6 +376,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RomBaseName = string.IsNullOrEmpty(config.RomPath)
             ? null
             : Path.GetFileNameWithoutExtension(config.RomPath);
+        OutputBaseName = RomBaseName;
 
         // Assign tracks
         foreach (var (key, pcmPath) in config.Tracks)
@@ -442,7 +452,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(t => t.HasFile)
             .ToDictionary(t => t.SlotNumber.ToString(), t => t.PcmPath!);
 
-        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Ask);
+        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Ask, OutputBaseName?.Trim());
 
         int lastTotal = 1;
         var progress = new Progress<(string step, int current, int total)>(p =>
