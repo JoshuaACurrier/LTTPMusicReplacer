@@ -75,10 +75,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool CanApply => _romPath is not null
                          && _outputDir is not null
-                         && Tracks.Any(t => t.HasFile)
+                         && (Tracks.Any(t => t.HasFile) || HasSprite)
                          && !string.IsNullOrWhiteSpace(_outputBaseName)
                          && !_isApplying
                          && !_isConverting;
+
+    private string? _lastOutputRomPath;
+    public bool CanLaunch => _lastOutputRomPath is not null && File.Exists(_lastOutputRomPath);
 
     public string AssignedCountText
     {
@@ -98,6 +101,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Path.Combine(
             Path.GetDirectoryName(Environment.ProcessPath!)!,
             "MusicLibrary");
+
+    private static string DefaultOutputFolder =>
+        Path.Combine(
+            Path.GetDirectoryName(Environment.ProcessPath!)!,
+            "Output");
 
     public string? LibraryFolder => _library.LibraryFolder;
     public string LibrarySongCount => _library.Entries.Count == 0
@@ -128,26 +136,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _applyEngine.ConflictsDetected += OnConflictsDetected;
 
-        // Set up music library folder (auto-create next to exe on first run)
+        // Set up library and output folders (auto-create next to exe on first run)
         var settings = SettingsManager.Load();
+
         string libraryPath = string.IsNullOrEmpty(settings.LibraryFolder)
             ? DefaultLibraryFolder
             : settings.LibraryFolder;
-
-        bool isFirstRun = string.IsNullOrEmpty(settings.LibraryFolder);
         Directory.CreateDirectory(libraryPath);
         _library.SetFolder(libraryPath);
 
-        if (isFirstRun)
-        {
-            SettingsManager.Save(new AppSettings { LibraryFolder = libraryPath });
-            MessageBox.Show(
-                $"Your Music Library folder has been set up at:\n\n{libraryPath}\n\n" +
-                "Drop your audio files there and they'll appear in the library picker on each track row.",
-                "Music Library Ready",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-        }
+        string outputPath = string.IsNullOrEmpty(settings.OutputFolder)
+            ? DefaultOutputFolder
+            : settings.OutputFolder;
+        Directory.CreateDirectory(outputPath);
+        OutputDir = outputPath;
+
+        // Persist any defaulted paths
+        if (string.IsNullOrEmpty(settings.LibraryFolder) || string.IsNullOrEmpty(settings.OutputFolder))
+            SaveAppSettings();
 
         OnPropertyChanged(nameof(LibraryFolder));
         OnPropertyChanged(nameof(LibrarySongCount));
@@ -527,10 +533,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (dlg.ShowDialog(this) == true)
         {
+            Directory.CreateDirectory(dlg.FolderName);
             OutputDir = dlg.FolderName;
+            SaveAppSettings();
             _isDirty = true;
             AppendLog($"Output folder: {OutputDir}");
         }
+    }
+
+    private void CleanOutputFolder_Click(object sender, RoutedEventArgs e)
+    {
+        if (OutputDir is null || !Directory.Exists(OutputDir)) return;
+
+        var files = Directory.GetFiles(OutputDir);
+        if (files.Length == 0)
+        {
+            AppendLog("Output folder is already empty.");
+            return;
+        }
+
+        var result = MessageBox.Show(
+            $"Delete all {files.Length} file(s) in:\n\n{OutputDir}\n\nThis cannot be undone.",
+            "Clear Output Folder?",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        int deleted = 0;
+        foreach (var f in files)
+        {
+            try { File.Delete(f); deleted++; }
+            catch { /* skip locked files */ }
+        }
+        AppendLog($"Cleared {deleted} file(s) from output folder.");
     }
 
     // ── Apply ─────────────────────────────────────────────────────────────
@@ -569,6 +605,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             ApplyProgress.Value = 100;
             ApplySuccessText.Text = $"Done! {result.FilesWritten.Count} file(s) written.";
             ApplySuccessText.Visibility = Visibility.Visible;
+
+            // Track the output ROM for the Launch button
+            string romExt = Path.GetExtension(_romPath!);
+            string baseName = !string.IsNullOrWhiteSpace(_outputBaseName) ? _outputBaseName.Trim() : Path.GetFileNameWithoutExtension(_romPath!);
+            _lastOutputRomPath = Path.Combine(_outputDir!, baseName + romExt);
+            OnPropertyChanged(nameof(CanLaunch));
 
             AppendLog($"Apply succeeded. {result.FilesWritten.Count} file(s) written to: {_outputDir}");
             foreach (var f in result.FilesWritten)
@@ -646,7 +688,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Directory.CreateDirectory(dlg.FolderName);
         _library.SetFolder(dlg.FolderName);
-        SettingsManager.Save(new AppSettings { LibraryFolder = dlg.FolderName });
+        SaveAppSettings();
         OnPropertyChanged(nameof(LibraryFolder));
         OnPropertyChanged(nameof(LibrarySongCount));
         AppendLog($"Music library: {dlg.FolderName} ({_library.Entries.Count} song(s) found)");
@@ -775,6 +817,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CanApply));
     }
 
+    // ── Settings ──────────────────────────────────────────────────────────
+    private void SaveAppSettings() =>
+        SettingsManager.Save(new AppSettings
+        {
+            LibraryFolder = _library.LibraryFolder ?? string.Empty,
+            OutputFolder  = _outputDir ?? string.Empty,
+        });
+
     // ── Sprite Handlers ───────────────────────────────────────────────────
     private void BrowseSprite_Click(object sender, RoutedEventArgs e)
     {
@@ -826,6 +876,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SpritePreviewUrl = null;
         _isDirty = true;
         AppendLog("Sprite cleared.");
+    }
+
+    // ── Launch ────────────────────────────────────────────────────────────
+    private void LaunchRom_Click(object sender, RoutedEventArgs e)
+    {
+        if (_lastOutputRomPath is null || !File.Exists(_lastOutputRomPath)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = _lastOutputRomPath,
+                UseShellExecute = true
+            });
+            AppendLog($"Launched: {Path.GetFileName(_lastOutputRomPath)}");
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[ERROR] Could not launch ROM: {ex.Message}");
+        }
     }
 
     // ── Log ───────────────────────────────────────────────────────────────

@@ -21,7 +21,10 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 
 ### General
 - **Output file renaming** — customize the base name used for all output files (e.g. `mypack.sfc`, `mypack.msu`, `mypack-2.pcm`)
+- **Dedicated output folder** — a persistent `Output/` folder next to the app holds all generated packs; change it any time via Browse; 🗑 button clears the folder when you're done
 - **One-click pack assembly** — copies the ROM, generates the `.msu` marker file, and writes all numbered `.pcm` files
+- **Sprite-only apply** — apply just a Link sprite to a ROM with no music changes required
+- **Launch ROM after apply** — a **Launch ROM** button appears after every successful apply to open the output file in your emulator immediately
 - **Conflict detection** — warns before overwriting existing files with Overwrite / Skip / Cancel options
 - **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; sprite preview URL is preserved
 - **Post-apply save prompt** — after a successful Apply, the app offers to save your settings if you haven't already
@@ -77,7 +80,7 @@ Use **Change Location...** in the toolbar to move the Music Library folder.
 The ▶ button on each row previews the assigned track. Click it again to stop.
 
 ### 4. Set output folder
-Click **Browse…** next to the output folder path and choose where the finished pack should be written.
+The app automatically creates an `Output/` folder next to its executable and uses it as the default destination. Click **Browse…** to choose a different folder. The 🗑 button deletes all files in the current output folder (with confirmation) so you can start fresh between runs.
 
 ### 5. Set output base name
 The **Output Base Name** field controls the filename stem used for every file the app writes. It auto-fills from your ROM filename, but you can change it freely.
@@ -98,7 +101,9 @@ Click **Apply to ROM**. The app will:
 3. Create the required empty `.msu` marker file
 4. Copy/write all assigned `.pcm` files with the correct numbered names
 
-The log panel at the bottom shows progress and any errors. After a successful apply, you'll be prompted to save your settings if you haven't already.
+You can apply with just a sprite selected, just music, or both.
+
+The log panel at the bottom shows progress and any errors. After a successful apply, a **Launch ROM** button appears — click it to open the output file in your default emulator. You'll also be prompted to save your settings if you haven't already.
 
 ### 7. Save / Load
 Use **Save** to write your current slot assignments and sprite to a `.json` file. Use **Load** to restore them later — handy when building multiple packs from the same base.

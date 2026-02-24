@@ -383,6 +383,7 @@
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <Border Grid.Column="0"
@@ -403,7 +404,7 @@
                                         <Setter Property="FontStyle" Value="Normal"/>
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding OutputDir}" Value="{x:Null}">
-                                                <Setter Property="Text" Value="No output folder selected"/>
+                                                <Setter Property="Text" Value="Auto-set when ROM is selected"/>
                                                 <Setter Property="FontStyle" Value="Italic"/>
                                                 <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
                                             </DataTrigger>
@@ -417,7 +418,15 @@
                                 Content="Browse..."
                                 Style="{StaticResource DarkButton}"
                                 Padding="12,6"
+                                Margin="0,0,6,0"
                                 Click="BrowseOutputDir_Click"/>
+
+                        <Button Grid.Column="2"
+                                Content="🗑"
+                                Style="{StaticResource ClearButton}"
+                                Padding="10,6"
+                                Click="CleanOutputFolder_Click"
+                                ToolTip="Delete all files in the output folder"/>
                     </Grid>
 
                     <!-- Base name row -->
@@ -438,6 +447,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
 
                         <Button x:Name="ApplyButton"
@@ -461,7 +471,18 @@
                                    Foreground="{StaticResource SuccessBrush}"
                                    VerticalAlignment="Center"
                                    HorizontalAlignment="Right"
+                                   Margin="0,0,10,0"
                                    Visibility="Collapsed"/>
+
+                        <!-- Launch ROM button (appears after successful apply) -->
+                        <Button Grid.Column="3"
+                                Content="Launch ROM"
+                                Style="{StaticResource AccentButton}"
+                                Padding="12,6"
+                                IsEnabled="{Binding CanLaunch}"
+                                Visibility="{Binding CanLaunch, Converter={StaticResource BoolToVis}}"
+                                Click="LaunchRom_Click"
+                                ToolTip="Open the output ROM with your default emulator"/>
                     </Grid>
 
                     <!-- Progress bar -->

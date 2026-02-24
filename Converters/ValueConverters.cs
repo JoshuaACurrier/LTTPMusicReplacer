@@ -81,7 +81,6 @@ public class UrlToImageSourceConverter : IValueConverter
             bmp.UriSource = new Uri(url, UriKind.Absolute);
             bmp.DecodePixelWidth = 64; // decode at thumbnail size to save memory
             bmp.EndInit();
-            bmp.Freeze(); // make thread-safe and improve binding performance
             return bmp;
         }
         catch
