@@ -32,6 +32,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _spritePreviewUrl;
     private bool _isApplying;
     private bool _isConverting;
+    private string? _emulatorPath;
+    private string? _connectorScriptPath;
+    private string? _sniPath;
+    private string? _trackerUrl;
+    private string? _seedUrl;
+
+    public string? EmulatorPath
+    {
+        get => _emulatorPath;
+        set { _emulatorPath = value; OnPropertyChanged(); SaveLaunchSettings(); }
+    }
+    public string? ConnectorScriptPath
+    {
+        get => _connectorScriptPath;
+        set { _connectorScriptPath = value; OnPropertyChanged(); SaveLaunchSettings(); }
+    }
+    public string? SniPath
+    {
+        get => _sniPath;
+        set { _sniPath = value; OnPropertyChanged(); SaveLaunchSettings(); }
+    }
+    public string? TrackerUrl
+    {
+        get => _trackerUrl;
+        set { _trackerUrl = value; OnPropertyChanged(); SaveLaunchSettings(); }
+    }
+    public string? SeedUrl
+    {
+        get => _seedUrl;
+        set { _seedUrl = value; OnPropertyChanged(); SaveLaunchSettings(); }
+    }
 
     public ObservableCollection<TrackSlot> Tracks { get; } = new();
 
@@ -56,7 +87,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string? SpritePath
     {
         get => _spritePath;
-        set { _spritePath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSprite)); OnPropertyChanged(nameof(SpriteDisplayName)); }
+        set { _spritePath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSprite)); OnPropertyChanged(nameof(SpriteDisplayName)); OnPropertyChanged(nameof(CanApply)); }
     }
 
     public string? SpritePreviewUrl
@@ -111,6 +142,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Path.GetDirectoryName(Environment.ProcessPath!)!,
             "Output");
 
+    private static string ConfigsFolder =>
+        Path.Combine(
+            Path.GetDirectoryName(Environment.ProcessPath!)!,
+            "Configs");
+
     public string? LibraryFolder => _library.LibraryFolder;
     public string LibrarySongCount => _library.Entries.Count == 0
         ? string.Empty
@@ -155,6 +191,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Directory.CreateDirectory(outputPath);
         OutputDir = outputPath;
 
+        // Ensure Configs folder exists next to the exe
+        Directory.CreateDirectory(ConfigsFolder);
+
+        // Load launch settings (null = file doesn't exist yet; wizard shown in Window_Loaded)
+        var launchSettings = LaunchSettingsManager.TryLoad();
+        if (launchSettings is not null)
+        {
+            _emulatorPath        = launchSettings.EmulatorPath.NullIfEmpty();
+            _connectorScriptPath = launchSettings.ConnectorScriptPath.NullIfEmpty();
+            _sniPath             = launchSettings.SniPath.NullIfEmpty();
+            _trackerUrl          = launchSettings.TrackerUrl.NullIfEmpty();
+            _seedUrl             = launchSettings.SeedUrl.NullIfEmpty();
+        }
+
         // Persist any defaulted paths
         if (string.IsNullOrEmpty(settings.LibraryFolder) || string.IsNullOrEmpty(settings.OutputFolder))
             SaveAppSettings();
@@ -162,6 +212,70 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(LibraryFolder));
         OnPropertyChanged(nameof(LibrarySongCount));
     }
+
+    private void Window_Loaded(object sender, RoutedEventArgs e)
+    {
+        SyncTrackerCombo();
+
+        // Show setup wizard on first run — deferred so main window is fully rendered first
+        if (!LaunchSettingsManager.FileExists())
+            Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, RunSetupWizard);
+    }
+
+    private void SyncTrackerCombo()
+    {
+        // Unsubscribe while syncing to avoid triggering SaveLaunchSettings via SelectionChanged
+        TrackerCombo.SelectionChanged -= TrackerCombo_SelectionChanged;
+        foreach (ComboBoxItem item in TrackerCombo.Items)
+        {
+            if ((item.Tag as string) == (_trackerUrl ?? string.Empty))
+            {
+                TrackerCombo.SelectedItem = item;
+                TrackerCombo.SelectionChanged += TrackerCombo_SelectionChanged;
+                return;
+            }
+        }
+        TrackerCombo.SelectedIndex = 0;
+        TrackerCombo.SelectionChanged += TrackerCombo_SelectionChanged;
+    }
+
+    private void RunSetupWizard()
+    {
+        try
+        {
+            var existing = LaunchSettingsManager.TryLoad();
+            var wizard = new SetupWizardWindow(existing) { Owner = this };
+            AppendLog("Setup wizard opened.");
+            bool? result = wizard.ShowDialog();
+            AppendLog($"Setup wizard closed (result={result}, hasResult={wizard.Result is not null}).");
+
+            if (result == true && wizard.Result is not null)
+            {
+                _emulatorPath        = wizard.Result.EmulatorPath.NullIfEmpty();
+                _connectorScriptPath = wizard.Result.ConnectorScriptPath.NullIfEmpty();
+                _sniPath             = wizard.Result.SniPath.NullIfEmpty();
+                _trackerUrl          = wizard.Result.TrackerUrl.NullIfEmpty();
+                OnPropertyChanged(nameof(EmulatorPath));
+                OnPropertyChanged(nameof(ConnectorScriptPath));
+                OnPropertyChanged(nameof(SniPath));
+                OnPropertyChanged(nameof(TrackerUrl));
+                SyncTrackerCombo();
+                AppendLog("Launch settings saved from wizard.");
+            }
+            else if (!LaunchSettingsManager.FileExists())
+            {
+                // User skipped — write empty file so wizard doesn't reappear
+                LaunchSettingsManager.Save(new LaunchSettings());
+                AppendLog("Setup skipped. Run wizard again from Launch Settings panel.");
+            }
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[ERROR] Setup wizard failed: {ex.Message}");
+        }
+    }
+
+    private void SetupWizard_Click(object sender, RoutedEventArgs e) => RunSetupWizard();
 
     // ── Track Catalog ─────────────────────────────────────────────────────
     private void LoadTrackCatalog()
@@ -413,7 +527,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*",
             DefaultExt = ".json",
             FileName = "msu-config",
-            InitialDirectory = Path.GetDirectoryName(Environment.ProcessPath!) ?? string.Empty
+            InitialDirectory = ConfigsFolder
         };
 
         if (dlg.ShowDialog(this) != true) return;
@@ -439,7 +553,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Title = "Load Configuration",
             Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*",
             CheckFileExists = true,
-            InitialDirectory = Path.GetDirectoryName(Environment.ProcessPath!) ?? string.Empty
+            InitialDirectory = ConfigsFolder
         };
 
         if (dlg.ShowDialog(this) != true) return;
@@ -822,6 +936,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OutputFolder  = _outputDir ?? string.Empty,
         });
 
+    private void SaveLaunchSettings() =>
+        LaunchSettingsManager.Save(new LaunchSettings
+        {
+            EmulatorPath        = _emulatorPath        ?? string.Empty,
+            ConnectorScriptPath = _connectorScriptPath ?? string.Empty,
+            SniPath             = _sniPath             ?? string.Empty,
+            TrackerUrl          = _trackerUrl          ?? string.Empty,
+            SeedUrl             = _seedUrl             ?? string.Empty,
+        });
+
     // ── Sprite Handlers ───────────────────────────────────────────────────
     private void BrowseSprite_Click(object sender, RoutedEventArgs e)
     {
@@ -901,22 +1025,125 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         AppendLog("All track assignments cleared.");
     }
 
+    // ── Launch Settings ───────────────────────────────────────────────────
+    private void BrowseEmulator_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select Emulator EXE",
+            Filter = "EXE (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        };
+        if (dlg.ShowDialog(this) == true) EmulatorPath = dlg.FileName;
+    }
+
+    private void BrowseConnector_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select Connector Script",
+            Filter = "Lua Script (*.lua)|*.lua|All Files (*.*)|*.*",
+            CheckFileExists = true
+        };
+        if (dlg.ShowDialog(this) == true) ConnectorScriptPath = dlg.FileName;
+    }
+
+    private void BrowseSni_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select SNI.exe",
+            Filter = "EXE (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        };
+        if (dlg.ShowDialog(this) == true) SniPath = dlg.FileName;
+    }
+
+    private void TrackerCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (sender is ComboBox combo && combo.SelectedItem is ComboBoxItem item)
+            TrackerUrl = item.Tag as string;
+    }
+
+    private void OpenTracker_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(TrackerUrl))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                { FileName = TrackerUrl, UseShellExecute = true });
+    }
+
     // ── Launch ────────────────────────────────────────────────────────────
     private void LaunchRom_Click(object sender, RoutedEventArgs e)
     {
         if (_lastOutputRomPath is null || !File.Exists(_lastOutputRomPath)) return;
-        try
+
+        // Diagnostic: show resolved paths so user can verify settings
+        static string D(string? v) => string.IsNullOrEmpty(v) ? "(not set)" : v;
+        AppendLog($"[Launch] ROM:        {_lastOutputRomPath}");
+        AppendLog($"[Launch] Emulator:   {D(_emulatorPath)}");
+        AppendLog($"[Launch] Connector:  {D(_connectorScriptPath)}");
+        AppendLog($"[Launch] SNI:        {D(_sniPath)}");
+        AppendLog($"[Launch] Tracker:    {D(_trackerUrl)}");
+
+        // 1. Start SNI if configured and not already running
+        if (!string.IsNullOrEmpty(_sniPath) && File.Exists(_sniPath))
+        {
+            bool sniRunning = System.Diagnostics.Process
+                .GetProcessesByName(Path.GetFileNameWithoutExtension(_sniPath)).Length > 0;
+            if (!sniRunning)
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    { FileName = _sniPath, UseShellExecute = true });
+                System.Threading.Thread.Sleep(1000); // let SNI initialize
+                AppendLog("SNI started.");
+            }
+            else
+            {
+                AppendLog("SNI already running — skipping.");
+            }
+        }
+
+        // 2. Open tracker in browser
+        if (!string.IsNullOrEmpty(_trackerUrl))
         {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                { FileName = _trackerUrl, UseShellExecute = true });
+            AppendLog($"Tracker opened: {_trackerUrl}");
+        }
+
+        // 3. Launch emulator or fallback to default file handler
+        try
+        {
+            if (!string.IsNullOrEmpty(_emulatorPath) && File.Exists(_emulatorPath))
             {
-                FileName = _lastOutputRomPath,
-                UseShellExecute = true
-            });
-            AppendLog($"Launched: {Path.GetFileName(_lastOutputRomPath)}");
+                // --lua= must come BEFORE the ROM path for BizHawk
+                var args = new System.Text.StringBuilder();
+                if (!string.IsNullOrEmpty(_connectorScriptPath) && File.Exists(_connectorScriptPath))
+                    args.Append($"--lua=\"{_connectorScriptPath}\" ");
+                args.Append($"\"{_lastOutputRomPath}\"");
+
+                string argStr = args.ToString();
+                AppendLog($"[Launch] Args: {argStr}");
+
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = _emulatorPath,
+                    Arguments = argStr,
+                    WorkingDirectory = Path.GetDirectoryName(_emulatorPath)!,
+                    UseShellExecute = false
+                });
+                AppendLog($"Launched: {Path.GetFileName(_emulatorPath)}");
+            }
+            else
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                    { FileName = _lastOutputRomPath, UseShellExecute = true });
+                AppendLog($"Launched: {Path.GetFileName(_lastOutputRomPath)}");
+            }
         }
         catch (Exception ex)
         {
-            AppendLog($"[ERROR] Could not launch ROM: {ex.Message}");
+            AppendLog($"[ERROR] Launch failed: {ex.Message}");
         }
     }
 

@@ -9,7 +9,8 @@
         MinWidth="800" MinHeight="560"
         Background="{StaticResource BgBrush}"
         Foreground="{StaticResource TextBrush}"
-        FontFamily="Segoe UI">
+        FontFamily="Segoe UI"
+        Loaded="Window_Loaded">
 
     <Window.Resources>
         <conv:NullToVisibilityConverter x:Key="NullToVis"/>
@@ -138,6 +139,7 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*" MinHeight="200"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="130" MinHeight="80"/>
             </Grid.RowDefinitions>
@@ -692,8 +694,145 @@
                 </Border>
             </Popup>
 
-            <!-- ── Log Viewer ── -->
+            <!-- ── Launch Settings ── -->
             <Border Grid.Row="3"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="16,12"
+                    Margin="0,0,0,12">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="130"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Section label -->
+                    <TextBlock Grid.Row="0" Grid.ColumnSpan="3"
+                               Text="LAUNCH SETTINGS"
+                               Style="{StaticResource SectionLabel}"
+                               Margin="0,0,0,10"/>
+
+                    <!-- Emulator -->
+                    <TextBlock Grid.Row="1" Grid.Column="0"
+                               Text="Emulator"
+                                   FontSize="12"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,0,6"/>
+                    <TextBox Grid.Row="1" Grid.Column="1"
+                             Style="{StaticResource DarkTextBox}"
+                             Text="{Binding EmulatorPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             Margin="0,0,6,6"
+                             ToolTip="Path to your emulator EXE (e.g. EmuHawk.exe)"/>
+                    <Button Grid.Row="1" Grid.Column="2"
+                            Content="Browse"
+                            Style="{StaticResource DarkButton}"
+                            Padding="8,4"
+                            Margin="0,0,0,6"
+                            Click="BrowseEmulator_Click"/>
+
+                    <!-- Connector Script -->
+                    <TextBlock Grid.Row="2" Grid.Column="0"
+                               Text="Connector Script"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,0,6"
+                               ToolTip="Lua connector script for Archipelago (passed as --lua to BizHawk)"/>
+                    <TextBox Grid.Row="2" Grid.Column="1"
+                             Style="{StaticResource DarkTextBox}"
+                             Text="{Binding ConnectorScriptPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             Margin="0,0,6,6"
+                             ToolTip="e.g. Archipelago/SNI/lua/Connector.lua"/>
+                    <Button Grid.Row="2" Grid.Column="2"
+                            Content="Browse"
+                            Style="{StaticResource DarkButton}"
+                            Padding="8,4"
+                            Margin="0,0,0,6"
+                            Click="BrowseConnector_Click"/>
+
+                    <!-- SNI -->
+                    <TextBlock Grid.Row="3" Grid.Column="0"
+                               Text="SNI"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,0,6"
+                               ToolTip="SNI.exe from your Archipelago install — started before the emulator"/>
+                    <TextBox Grid.Row="3" Grid.Column="1"
+                             Style="{StaticResource DarkTextBox}"
+                             Text="{Binding SniPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             Margin="0,0,6,6"
+                             ToolTip="SNI.exe — started automatically before the emulator"/>
+                    <Button Grid.Row="3" Grid.Column="2"
+                            Content="Browse"
+                            Style="{StaticResource DarkButton}"
+                            Padding="8,4"
+                            Margin="0,0,0,6"
+                            Click="BrowseSni_Click"/>
+
+                    <!-- Tracker -->
+                    <TextBlock Grid.Row="4" Grid.Column="0"
+                               Text="Tracker"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"
+                               Margin="0,0,0,6"/>
+                    <ComboBox x:Name="TrackerCombo"
+                              Grid.Row="4" Grid.Column="1"
+                              Style="{StaticResource DarkComboBox}"
+                              Margin="0,0,6,6"
+                              SelectionChanged="TrackerCombo_SelectionChanged">
+                        <ComboBoxItem Content="(none)" Tag=""/>
+                        <ComboBoxItem Content="Dunka's Community Tracker" Tag="https://alttprtracker.mfns.dev/"/>
+                        <ComboBoxItem Content="alttprtracker.com" Tag="https://alttprtracker.com/"/>
+                    </ComboBox>
+                    <Button Grid.Row="4" Grid.Column="2"
+                            Content="Open Now"
+                            Style="{StaticResource DarkButton}"
+                            Padding="8,4"
+                            Margin="0,0,0,6"
+                            Click="OpenTracker_Click"
+                            ToolTip="Open the tracker in your browser now"/>
+
+                    <!-- Seed URL -->
+                    <TextBlock Grid.Row="5" Grid.Column="0"
+                               Text="Seed URL"
+                               FontSize="12"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               VerticalAlignment="Center"
+                               ToolTip="Your alttpr.com seed link — saved for reference"/>
+                    <TextBox Grid.Row="5" Grid.Column="1" Grid.ColumnSpan="2"
+                             Style="{StaticResource DarkTextBox}"
+                             Text="{Binding SeedUrl, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                             ToolTip="Your alttpr.com seed link — saved here for convenience"/>
+
+                    <!-- Re-run wizard -->
+                    <Button Grid.Row="6" Grid.Column="0" Grid.ColumnSpan="3"
+                            Content="⚙ Run Setup Wizard…"
+                            Style="{StaticResource DarkButton}"
+                            HorizontalAlignment="Right"
+                            Padding="10,4"
+                            Margin="0,10,0,0"
+                            Click="SetupWizard_Click"
+                            ToolTip="Re-run the setup wizard to reconfigure emulator, connector, SNI and tracker"/>
+                </Grid>
+            </Border>
+
+            <!-- ── Log Viewer ── -->
+            <Border Grid.Row="4"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"

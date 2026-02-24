@@ -1,0 +1,180 @@
+<Window x:Class="LTTPEnhancementTools.SetupWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LTTP Enhancement Tools — Setup"
+        Width="540" Height="420"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BgBrush}"
+        Topmost="True"
+        ShowInTaskbar="True"
+        Loaded="Window_Loaded">
+
+    <Window.Resources>
+        <Style x:Key="StepLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="StepTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="FontSize" Value="18"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+        <Style x:Key="StepDescription" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,20"/>
+        </Style>
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style x:Key="DarkTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
+            <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="CaretBrush" Value="{StaticResource TextBrush}"/>
+        </Style>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="6"/>          <!-- accent bar -->
+            <RowDefinition Height="*"/>          <!-- content -->
+            <RowDefinition Height="Auto"/>       <!-- nav buttons -->
+        </Grid.RowDefinitions>
+
+        <!-- Top accent bar -->
+        <Border Grid.Row="0" Background="{StaticResource AccentBrush}"/>
+
+        <!-- Step pages -->
+        <Grid Grid.Row="1" Margin="36,28,36,16">
+
+            <!-- Step 0: Welcome -->
+            <StackPanel x:Name="Step0" Visibility="Visible">
+                <TextBlock Style="{StaticResource StepLabel}" Text="STEP 1 OF 4"/>
+                <TextBlock Style="{StaticResource StepTitle}" Text="Welcome to LTTP Enhancement Tools"/>
+                <TextBlock Style="{StaticResource StepDescription}">
+                    This wizard will help you configure the one-click launch feature.
+                    You can point the tool to your emulator, Archipelago connector script,
+                    SNI service, and a community tracker — then launch everything at once
+                    after applying your music/sprite patches.
+                    <LineBreak/><LineBreak/>
+                    All settings are optional. You can skip any step and configure paths later
+                    from the Launch Settings panel in the main window.
+                </TextBlock>
+                <TextBlock Foreground="{StaticResource TextMutedBrush}" FontSize="11" TextWrapping="Wrap">
+                    Click Next to begin, or Finish to skip setup entirely.
+                </TextBlock>
+            </StackPanel>
+
+            <!-- Step 1: Emulator -->
+            <StackPanel x:Name="Step1" Visibility="Collapsed">
+                <TextBlock Style="{StaticResource StepLabel}" Text="STEP 2 OF 4"/>
+                <TextBlock Style="{StaticResource StepTitle}" Text="Emulator"/>
+                <TextBlock Style="{StaticResource StepDescription}">
+                    Select your SNES emulator executable. BizHawk is recommended
+                    for Archipelago play — the tool will auto-load the ROM directly into it.
+                </TextBlock>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Emulator EXE (e.g. EmuHawk.exe)"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="EmulatorPathBox" Grid.Column="0" Style="{StaticResource DarkTextBox}"
+                             Text="{Binding EmulatorPath, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Button Grid.Column="2" Content="Browse…" Style="{StaticResource DarkButton}"
+                            Click="BrowseEmulator_Click" Padding="12,5"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Step 2: Connector Script -->
+            <StackPanel x:Name="Step2" Visibility="Collapsed">
+                <TextBlock Style="{StaticResource StepLabel}" Text="STEP 3 OF 4"/>
+                <TextBlock Style="{StaticResource StepTitle}" Text="Archipelago Connector Script"/>
+                <TextBlock Style="{StaticResource StepDescription}">
+                    (Optional) If you play Archipelago, select the Lua connector script
+                    that ships with your Archipelago client. BizHawk will auto-run it on launch.
+                    <LineBreak/><LineBreak/>
+                    Typically found in: <Run Foreground="{StaticResource TextMutedBrush}">archipelago\data\lua\connector_bizhawk_emuHawk.lua</Run>
+                </TextBlock>
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Connector Script (*.lua)  —  leave blank to skip"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ConnectorPathBox" Grid.Column="0" Style="{StaticResource DarkTextBox}"
+                             Text="{Binding ConnectorScriptPath, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Button Grid.Column="2" Content="Browse…" Style="{StaticResource DarkButton}"
+                            Click="BrowseConnector_Click" Padding="12,5"/>
+                </Grid>
+            </StackPanel>
+
+            <!-- Step 3: SNI + Tracker -->
+            <StackPanel x:Name="Step3" Visibility="Collapsed">
+                <TextBlock Style="{StaticResource StepLabel}" Text="STEP 4 OF 4"/>
+                <TextBlock Style="{StaticResource StepTitle}" Text="SNI &amp; Tracker"/>
+                <TextBlock Style="{StaticResource StepDescription}">
+                    (Optional) SNI bridges your emulator to Archipelago's multiworld server.
+                    Select SNI.exe and a community tracker to open automatically on launch.
+                </TextBlock>
+
+                <TextBlock Style="{StaticResource FieldLabel}" Text="SNI.exe  —  leave blank to skip"/>
+                <Grid Margin="0,0,0,14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="8"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="SniPathBox" Grid.Column="0" Style="{StaticResource DarkTextBox}"
+                             Text="{Binding SniPath, UpdateSourceTrigger=PropertyChanged}"/>
+                    <Button Grid.Column="2" Content="Browse…" Style="{StaticResource DarkButton}"
+                            Click="BrowseSni_Click" Padding="12,5"/>
+                </Grid>
+
+                <TextBlock Style="{StaticResource FieldLabel}" Text="Community Tracker"/>
+                <ComboBox x:Name="WizardTrackerCombo" Style="{StaticResource DarkComboBox}"
+                          SelectionChanged="WizardTrackerCombo_SelectionChanged">
+                    <ComboBoxItem Content="(none)"                         Tag=""/>
+                    <ComboBoxItem Content="Dunka's Community Tracker"      Tag="https://alttprtracker.mfns.dev/"/>
+                    <ComboBoxItem Content="alttprtracker.com"              Tag="https://alttprtracker.com/"/>
+                </ComboBox>
+            </StackPanel>
+        </Grid>
+
+        <!-- Navigation buttons -->
+        <Border Grid.Row="2" BorderBrush="{StaticResource BorderFaintBrush}" BorderThickness="0,1,0,0"
+                Background="{StaticResource SurfaceBrush}">
+            <Grid Margin="36,14,36,14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="8"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Button Grid.Column="0" x:Name="BackButton" Content="← Back"
+                        Style="{StaticResource DarkButton}" Click="Back_Click"
+                        Padding="14,6" Visibility="Collapsed" HorizontalAlignment="Left"/>
+
+                <Button Grid.Column="1" x:Name="SkipButton" Content="Skip Setup"
+                        Style="{StaticResource DarkButton}" Click="Skip_Click" Padding="14,6"/>
+
+                <Button Grid.Column="3" x:Name="NextButton" Content="Next →"
+                        Style="{StaticResource AccentButton}" Click="Next_Click" Padding="18,6"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
