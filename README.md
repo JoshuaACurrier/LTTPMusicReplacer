@@ -25,9 +25,8 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 - **One-click pack assembly** — copies the ROM, generates the `.msu` marker file, and writes all numbered `.pcm` files
 - **Sprite-only apply** — apply just a Link sprite to a ROM with no music changes required
 - **Launch ROM after apply** — a **Launch ROM** button appears after every successful apply to open the output file in your emulator immediately
-- **Conflict detection** — warns before overwriting existing files with Overwrite / Skip / Cancel options
 - **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; sprite preview URL is preserved
-- **Post-apply save prompt** — after a successful Apply, the app offers to save your settings if you haven't already
+- **Track search** — filter the 61-slot track list by name to find slots quickly; **Clear All** removes all assignments at once
 - **No admin rights required** — per-user install, no elevated permissions needed
 - **No .NET runtime required** — ships as a single self-contained EXE
 

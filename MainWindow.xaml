@@ -238,6 +238,49 @@
                     BorderThickness="1"
                     CornerRadius="6"
                     ClipToBounds="True">
+                <DockPanel>
+                    <!-- Search + Clear All header -->
+                    <Border DockPanel.Dock="Top"
+                            Background="{StaticResource SurfaceBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="0,0,0,1"
+                            Padding="8,6">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0" Margin="0,0,8,0">
+                                <TextBox x:Name="TrackSearch"
+                                         Style="{StaticResource DarkTextBox}"
+                                         TextChanged="TrackSearch_TextChanged"/>
+                                <TextBlock IsHitTestVisible="False"
+                                           Foreground="{StaticResource TextFaintBrush}"
+                                           FontStyle="Italic"
+                                           FontSize="12"
+                                           Padding="10,0,0,0"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=TrackSearch}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Setter Property="Text" Value="Search tracks…"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <Button Grid.Column="1"
+                                    Content="Clear All"
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="10,4"
+                                    Click="ClearAllTracks_Click"
+                                    ToolTip="Remove all track assignments"/>
+                        </Grid>
+                    </Border>
                 <DataGrid x:Name="TrackGrid"
                           Style="{StaticResource DarkDataGrid}"
                           ItemsSource="{Binding Tracks}"
@@ -354,6 +397,7 @@
                         </DataGridTemplateColumn>
                     </DataGrid.Columns>
                 </DataGrid>
+                </DockPanel>
             </Border>
 
             <!-- ── Apply Section ── -->
@@ -516,22 +560,60 @@
                         CornerRadius="6"
                         Padding="10"
                         Width="320"
-                        MaxHeight="380">
+                        MaxHeight="440">
                     <Grid>
                         <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="*"/>
                         </Grid.RowDefinitions>
 
-                        <!-- Search box -->
-                        <TextBox x:Name="LibrarySearch"
-                                 Grid.Row="0"
-                                 Style="{StaticResource DarkTextBox}"
-                                 Margin="0,0,0,6"
-                                 TextChanged="LibrarySearch_TextChanged"/>
+                        <!-- Slot context header -->
+                        <TextBlock Grid.Row="0"
+                                   Text="{Binding LibraryTargetSlotName}"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextMutedBrush}"
+                                   Margin="0,0,0,6"/>
+
+                        <!-- Search + result count -->
+                        <Grid Grid.Row="1" Margin="0,0,0,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid Grid.Column="0" Margin="0,0,6,0">
+                                <TextBox x:Name="LibrarySearch"
+                                         Style="{StaticResource DarkTextBox}"
+                                         TextChanged="LibrarySearch_TextChanged"/>
+                                <TextBlock IsHitTestVisible="False"
+                                           Foreground="{StaticResource TextFaintBrush}"
+                                           FontStyle="Italic"
+                                           FontSize="12"
+                                           Padding="10,0,0,0"
+                                           VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Text, ElementName=LibrarySearch}" Value="">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                    <Setter Property="Text" Value="Search…"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                            </Grid>
+                            <TextBlock x:Name="LibraryResultCount"
+                                       Grid.Column="1"
+                                       FontSize="10"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       VerticalAlignment="Center"/>
+                        </Grid>
 
                         <!-- Song list — ItemsControl with play + single-click-assign per row -->
-                        <ScrollViewer Grid.Row="1"
+                        <ScrollViewer Grid.Row="2"
                                       MaxHeight="300"
                                       VerticalScrollBarVisibility="Auto"
                                       HorizontalScrollBarVisibility="Disabled">

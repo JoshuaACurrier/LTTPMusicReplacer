@@ -9,6 +9,7 @@ using System.Windows.Media;
 using LTTPEnhancementTools.Models;
 using LTTPEnhancementTools.Services;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using Microsoft.Win32;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
@@ -31,7 +32,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _spritePreviewUrl;
     private bool _isApplying;
     private bool _isConverting;
-    private bool _isDirty;
 
     public ObservableCollection<TrackSlot> Tracks { get; } = new();
 
@@ -44,7 +44,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string? OutputBaseName
     {
         get => _outputBaseName;
-        set { _outputBaseName = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(CanApply)); }
+        set { _outputBaseName = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanApply)); }
     }
 
     public string? OutputDir
@@ -88,9 +88,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         get
         {
             int count = Tracks.Count(t => t.HasFile);
-            return count == 0 ? string.Empty : $"{count} track{(count != 1 ? "s" : "")} assigned";
+            return count == 0 ? string.Empty : $"{count} of {Tracks.Count} tracks assigned";
         }
     }
+
+    public string LibraryTargetSlotName => _libraryTargetSlot is null
+        ? "Music Library"
+        : $"Slot {_libraryTargetSlot.SlotNumber} — {_libraryTargetSlot.Name}";
 
     // ── Library ───────────────────────────────────────────────────────────
     private readonly MusicLibrary _library = new();
@@ -199,7 +203,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _romPath = dlg.FileName;
             RomBaseName = Path.GetFileNameWithoutExtension(dlg.FileName);
             OutputBaseName = RomBaseName;
-            _isDirty = true;
             AppendLog($"ROM selected: {_romPath}");
         }
     }
@@ -282,7 +285,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
                 AppendLog($"Slot {slot.SlotNumber} assigned: {Path.GetFileName(path)}");
 
-            _isDirty = true;
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -329,7 +331,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (validationError is not null)
                     AppendLog($"[WARN] Slot {slot.SlotNumber}: converted file issue: {validationError}");
 
-                _isDirty = true;
                 OnPropertyChanged(nameof(AssignedCountText));
                 OnPropertyChanged(nameof(CanApply));
             }
@@ -362,7 +363,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 StopCurrentPlayback();
             slot.PcmPath = null;
             slot.ValidationError = null;
-            _isDirty = true;
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -421,7 +421,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         string? error = ConfigManager.Save(dlg.FileName, config);
         if (error is null)
         {
-            _isDirty = false;
             AppendLog($"Config saved: {dlg.FileName}");
             ShowConfigMessage("Config saved.", isError: false);
         }
@@ -452,7 +451,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         ApplyConfig(config!);
-        _isDirty = false;
         AppendLog($"Config loaded: {dlg.FileName} ({config!.Tracks.Count} track(s))");
         ShowConfigMessage($"Config loaded. {config.Tracks.Count} track(s) restored.", isError: false);
     }
@@ -536,7 +534,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Directory.CreateDirectory(dlg.FolderName);
             OutputDir = dlg.FolderName;
             SaveAppSettings();
-            _isDirty = true;
             AppendLog($"Output folder: {OutputDir}");
         }
     }
@@ -587,7 +584,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(t => t.HasFile)
             .ToDictionary(t => t.SlotNumber.ToString(), t => t.PcmPath!);
 
-        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Ask, OutputBaseName?.Trim(), _spritePath);
+        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Overwrite, OutputBaseName?.Trim(), _spritePath);
 
         int lastTotal = 1;
         var progress = new Progress<(string step, int current, int total)>(p =>
@@ -615,17 +612,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AppendLog($"Apply succeeded. {result.FilesWritten.Count} file(s) written to: {_outputDir}");
             foreach (var f in result.FilesWritten)
                 AppendLog($"  + {Path.GetFileName(f)}");
-
-            if (_isDirty)
-            {
-                var saveResult = MessageBox.Show(
-                    "Apply succeeded! Would you like to save your current settings?",
-                    "Save Settings?",
-                    MessageBoxButton.YesNo,
-                    MessageBoxImage.Question);
-                if (saveResult == MessageBoxResult.Yes)
-                    SaveConfig_Click(null!, null!);
-            }
         }
         catch (OperationCanceledException)
         {
@@ -715,7 +701,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         _libraryTargetSlot = slot;
+        OnPropertyChanged(nameof(LibraryTargetSlotName));
         LibrarySearch.Text = string.Empty;
+        LibraryResultCount.Text = string.Empty;
         LibraryList.ItemsSource = _library.Entries;
         LibraryPopup.PlacementTarget = btn;
         LibraryPopup.Placement = PlacementMode.Bottom;
@@ -726,9 +714,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void LibrarySearch_TextChanged(object sender, TextChangedEventArgs e)
     {
         var q = LibrarySearch.Text.Trim();
-        LibraryList.ItemsSource = string.IsNullOrEmpty(q)
-            ? (IEnumerable<LibraryEntry>)_library.Entries
-            : _library.Entries.Where(en => en.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+        if (string.IsNullOrEmpty(q))
+        {
+            LibraryList.ItemsSource = _library.Entries;
+            LibraryResultCount.Text = string.Empty;
+        }
+        else
+        {
+            var filtered = _library.Entries.Where(en => en.Name.Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+            LibraryList.ItemsSource = filtered;
+            LibraryResultCount.Text = $"{filtered.Count}/{_library.Entries.Count}";
+        }
     }
 
     private void LibraryItemPlay_Click(object sender, RoutedEventArgs e)
@@ -812,7 +808,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
         }
 
-        _isDirty = true;
         OnPropertyChanged(nameof(AssignedCountText));
         OnPropertyChanged(nameof(CanApply));
     }
@@ -847,7 +842,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SpritePath = dlg.FileName;
         SpritePreviewUrl = null;
-        _isDirty = true;
         AppendLog($"Sprite selected: {Path.GetFileName(dlg.FileName)}");
     }
 
@@ -866,7 +860,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         SpritePath = window.SelectedSpritePath;
         SpritePreviewUrl = window.SelectedSpritePreviewUrl;
-        _isDirty = true;
         AppendLog($"Sprite selected: {Path.GetFileNameWithoutExtension(window.SelectedSpritePath)}");
     }
 
@@ -874,8 +867,36 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SpritePath = null;
         SpritePreviewUrl = null;
-        _isDirty = true;
         AppendLog("Sprite cleared.");
+    }
+
+    // ── Track Search / Clear All ──────────────────────────────────────────
+    private void TrackSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var view = CollectionViewSource.GetDefaultView(Tracks);
+        var q = TrackSearch.Text.Trim();
+        view.Filter = string.IsNullOrEmpty(q)
+            ? null
+            : (obj => obj is TrackSlot s && s.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void ClearAllTracks_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Tracks.Any(t => t.HasFile)) return;
+
+        var result = MessageBox.Show(
+            "Remove all track assignments?",
+            "Clear All",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (result != MessageBoxResult.Yes) return;
+
+        StopCurrentPlayback();
+        foreach (var t in Tracks) { t.PcmPath = null; t.ValidationError = null; }
+        OnPropertyChanged(nameof(AssignedCountText));
+        OnPropertyChanged(nameof(CanApply));
+        AppendLog("All track assignments cleared.");
     }
 
     // ── Launch ────────────────────────────────────────────────────────────
