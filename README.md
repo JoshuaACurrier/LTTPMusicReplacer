@@ -1,6 +1,6 @@
 # ALttP Enhancement Tools
 
-A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. Manage MSU-1 music packs, replace the Link sprite, and assemble a complete customized pack in one click.
+A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. Manage MSU-1 music packs, replace the Link sprite, and launch everything — emulator, SNI, and community tracker — in one click.
 
 ---
 
@@ -13,20 +13,27 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 - **Audio conversion built-in** — import MP3, WAV, WMA, AAC, M4A, AIFF, and more; files are converted to MSU-1 PCM automatically and cached so the same file is never converted twice
 - **Copy-to-Library prompt** — when browsing for a file manually, the app offers to copy it to your Music Library for future reuse
 - **Preview playback** — listen to any assigned track before applying
+- **Track search** — filter the 61-slot track list by name to find slots quickly; **Clear All** removes all assignments at once
 
 ### Sprite
 - **Link Sprite replacement** — apply a custom `.zspr` or `.spr` Link sprite to your ROM
 - **Online Sprite Browser** — browse and download sprites directly from the ALttP community sprite library without leaving the app
 - **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times
 
+### Archipelago / One-Click Launch
+- **Setup Wizard** — on first run a 4-step wizard walks you through configuring your emulator, Archipelago connector script, SNI, and community tracker
+- **One-click launch** — after applying, a single **Launch ROM** button starts SNI, opens your community tracker in the browser, and launches the emulator with the ROM and Lua connector pre-loaded
+- **BizHawk integration** — auto-passes `--lua=<connector>` before the ROM path so the Archipelago Lua script starts automatically
+- **SNI auto-start** — SNI.exe is started before the emulator if it isn't already running
+- **Community tracker** — choose Dunka's Tracker or alttprtracker.com from a dropdown; opens in the browser on every launch
+- **Re-run wizard** — reconfigure any path at any time via the **⚙ Run Setup Wizard…** button in Launch Settings
+
 ### General
 - **Output file renaming** — customize the base name used for all output files (e.g. `mypack.sfc`, `mypack.msu`, `mypack-2.pcm`)
 - **Dedicated output folder** — a persistent `Output/` folder next to the app holds all generated packs; change it any time via Browse; 🗑 button clears the folder when you're done
 - **One-click pack assembly** — copies the ROM, generates the `.msu` marker file, and writes all numbered `.pcm` files
 - **Sprite-only apply** — apply just a Link sprite to a ROM with no music changes required
-- **Launch ROM after apply** — a **Launch ROM** button appears after every successful apply to open the output file in your emulator immediately
-- **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; sprite preview URL is preserved
-- **Track search** — filter the 61-slot track list by name to find slots quickly; **Clear All** removes all assignments at once
+- **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; files default to a `Configs/` folder next to the app for easy organization
 - **No admin rights required** — per-user install, no elevated permissions needed
 - **No .NET runtime required** — ships as a single self-contained EXE
 
@@ -50,16 +57,25 @@ Alternatively, grab just the standalone `LTTPEnhancementTools.exe` and run it fr
 
 ## How to Use
 
-### 1. Select your ROM
-Click **Select ROM** in the toolbar and pick your ALttP Randomizer `.sfc` or `.smc` file.
+### 1. First-run Setup Wizard
+On first launch a wizard appears to configure your launch settings:
+- **Step 1** — Introduction
+- **Step 2** — Select your emulator EXE (e.g. `EmuHawk.exe` for BizHawk)
+- **Step 3** — Select the Archipelago Lua connector script (optional; typically `connector_bizhawk_emuHawk.lua` inside your Archipelago install)
+- **Step 4** — Select `SNI.exe` and choose a community tracker
 
-### 2. (Optional) Set a Link Sprite
+You can skip the wizard and configure paths later from the **Launch Settings** panel, or re-run it at any time with the **⚙ Run Setup Wizard…** button.
+
+### 2. Select your ROM
+Click **Select ROM** and pick your ALttP Randomizer `.sfc` or `.smc` file.
+
+### 3. (Optional) Set a Link Sprite
 In the sprite header at the top:
 - Click **Browse File...** to select a local `.zspr` or `.spr` sprite file
-- Click **Browse Sprites...** to pick from the online ALttP sprite community library — includes a live thumbnail preview
+- Click **Browse Sprites...** to pick from the online ALttP sprite community library
 - Click **✕** to clear the sprite (default Link will be used)
 
-### 3. Assign music to slots
+### 4. Assign music to slots
 
 **From your Music Library (recommended):**
 
@@ -67,45 +83,37 @@ On first launch the app creates a `MusicLibrary/` folder next to its executable.
 1. Click the **Library** button on any track row
 2. The popup shows all songs in your library with ▶ play buttons
 3. Click ▶ to audition a song; click the song name to assign it to the slot
-4. Non-converted songs are converted and cached on first assign (the cache is reused on subsequent picks)
 
 Use **Change Location...** in the toolbar to move the Music Library folder.
 
 **Browsing manually:**
 - Click **Pick File** (or **Replace**) on any row to open a file picker
-- Select any supported audio file — the app will offer to copy it to your Music Library for future reuse
-- Non-PCM files are converted automatically
+- Non-PCM files are converted to MSU-1 PCM automatically
 
-The ▶ button on each row previews the assigned track. Click it again to stop.
+### 5. Set output folder and name
+The app automatically creates an `Output/` folder next to its executable. Click **Browse…** to choose a different folder. The 🗑 button clears it when you're done.
 
-### 4. Set output folder
-The app automatically creates an `Output/` folder next to its executable and uses it as the default destination. Click **Browse…** to choose a different folder. The 🗑 button deletes all files in the current output folder (with confirmation) so you can start fresh between runs.
-
-### 5. Set output base name
-The **Output Base Name** field controls the filename stem used for every file the app writes. It auto-fills from your ROM filename, but you can change it freely.
-
-For example, setting it to `mypack` produces:
-```
-mypack.sfc
-mypack.msu
-mypack-2.pcm
-mypack-9.pcm
-…
-```
+The **Output Base Name** field controls the filename stem (auto-fills from your ROM filename).
 
 ### 6. Apply
 Click **Apply to ROM**. The app will:
-1. Copy your ROM to the output folder (using the base name you set)
+1. Copy your ROM to the output folder
 2. Apply the selected Link sprite (if any)
 3. Create the required empty `.msu` marker file
-4. Copy/write all assigned `.pcm` files with the correct numbered names
+4. Write all assigned `.pcm` files with the correct numbered names
 
-You can apply with just a sprite selected, just music, or both.
+You can apply with just a sprite, just music, or both.
 
-The log panel at the bottom shows progress and any errors. After a successful apply, a **Launch ROM** button appears — click it to open the output file in your default emulator. You'll also be prompted to save your settings if you haven't already.
+### 7. Launch
+After a successful apply, click **Launch ROM**. The app will:
+1. Start **SNI.exe** (if configured and not already running)
+2. Open your selected **community tracker** in the browser
+3. Launch the **emulator** with the ROM and Lua connector script
 
-### 7. Save / Load
-Use **Save** to write your current slot assignments and sprite to a `.json` file. Use **Load** to restore them later — handy when building multiple packs from the same base.
+If no emulator is configured, the ROM opens in whatever app is associated with `.sfc` files on your system.
+
+### 8. Save / Load configs
+Use **Save** to write your current slot assignments and sprite to a `.json` config file — stored by default in the `Configs/` folder next to the app. Use **Load** to restore them later. Handy for swapping between music packs.
 
 ---
 
@@ -146,7 +154,15 @@ If the app crashes or fails to start, a crash log is automatically written to:
 %LocalAppData%\LTTPEnhancementTools\crash.log
 ```
 
-Please include the contents of this file when reporting an issue.
+Settings are stored in two separate files:
+```
+%LocalAppData%\LTTPEnhancementTools\launchSettings.json   ← emulator, SNI, tracker paths
+%LocalAppData%\LTTPEnhancementTools\settings.json         ← library/output folder paths
+```
+
+Delete `launchSettings.json` to force the setup wizard to reappear on next launch.
+
+Please include the crash log when reporting an issue.
 
 ---
 
@@ -177,31 +193,34 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 ```
 LTTPEnhancementTools/
 ├── Models/
-│   ├── TrackSlot.cs          # Per-slot data + validation state
-│   ├── AppConfig.cs          # JSON config schema (tracks + sprite)
-│   └── LibraryEntry.cs       # Music Library song entry model
+│   ├── TrackSlot.cs              # Per-slot data + validation state
+│   ├── AppConfig.cs              # JSON config schema (tracks + sprite)
+│   └── LibraryEntry.cs           # Music Library song entry model
 ├── Services/
-│   ├── AudioPlayer.cs        # NAudio PCM playback
-│   ├── PcmConverter.cs       # Audio → MSU-1 PCM conversion
-│   ├── PcmValidator.cs       # MSU-1 header validation
-│   ├── ConfigManager.cs      # Save/load JSON config
-│   ├── MsuApplyEngine.cs     # Pack assembly engine
-│   ├── SpriteApplier.cs      # ZSPR/SPR sprite patching
-│   ├── MusicLibrary.cs       # Library folder scanner + cache manager
-│   ├── AppSettings.cs        # App-level settings schema
-│   └── SettingsManager.cs    # Persist settings to %LocalAppData%
+│   ├── AudioPlayer.cs            # NAudio PCM playback
+│   ├── PcmConverter.cs           # Audio → MSU-1 PCM conversion
+│   ├── PcmValidator.cs           # MSU-1 header validation
+│   ├── ConfigManager.cs          # Save/load JSON config
+│   ├── MsuApplyEngine.cs         # Pack assembly engine
+│   ├── SpriteApplier.cs          # ZSPR/SPR sprite patching
+│   ├── MusicLibrary.cs           # Library folder scanner + cache manager
+│   ├── AppSettings.cs            # App-level settings (library/output paths)
+│   ├── SettingsManager.cs        # Persist AppSettings to %LocalAppData%
+│   ├── LaunchSettings.cs         # Launch settings (emulator, SNI, tracker)
+│   └── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
 ├── Converters/
-│   └── ValueConverters.cs    # WPF value converters
+│   └── ValueConverters.cs        # WPF value converters
 ├── Resources/
-│   ├── trackCatalog.json     # Slot number → track name mapping (61 slots)
-│   ├── Styles.xaml           # Dark theme resource dictionary
-│   └── icon.ico              # App icon
+│   ├── trackCatalog.json         # Slot number → track name mapping (61 slots)
+│   ├── Styles.xaml               # Dark theme resource dictionary
+│   └── icon.ico                  # App icon
 ├── App.xaml / App.xaml.cs
 ├── MainWindow.xaml / MainWindow.xaml.cs
+├── SetupWizardWindow.xaml / SetupWizardWindow.xaml.cs
 ├── SpriteBrowserWindow.xaml / SpriteBrowserWindow.xaml.cs
 ├── LTTPEnhancementTools.csproj
-├── setup.iss                 # Inno Setup installer script
-└── publish.bat               # One-command build + package script
+├── setup.iss                     # Inno Setup installer script
+└── publish.bat                   # One-command build + package script
 ```
 
 ### Dependencies

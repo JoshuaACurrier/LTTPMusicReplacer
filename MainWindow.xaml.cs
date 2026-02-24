@@ -245,11 +245,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var existing = LaunchSettingsManager.TryLoad();
             var wizard = new SetupWizardWindow(existing) { Owner = this };
-            AppendLog("Setup wizard opened.");
-            bool? result = wizard.ShowDialog();
-            AppendLog($"Setup wizard closed (result={result}, hasResult={wizard.Result is not null}).");
 
-            if (result == true && wizard.Result is not null)
+            if (wizard.ShowDialog() == true && wizard.Result is not null)
             {
                 _emulatorPath        = wizard.Result.EmulatorPath.NullIfEmpty();
                 _connectorScriptPath = wizard.Result.ConnectorScriptPath.NullIfEmpty();
@@ -260,13 +257,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 OnPropertyChanged(nameof(SniPath));
                 OnPropertyChanged(nameof(TrackerUrl));
                 SyncTrackerCombo();
-                AppendLog("Launch settings saved from wizard.");
+                AppendLog("Launch settings saved.");
             }
             else if (!LaunchSettingsManager.FileExists())
             {
                 // User skipped — write empty file so wizard doesn't reappear
                 LaunchSettingsManager.Save(new LaunchSettings());
-                AppendLog("Setup skipped. Run wizard again from Launch Settings panel.");
+                AppendLog("Setup skipped. Use '⚙ Run Setup Wizard…' in Launch Settings to configure later.");
             }
         }
         catch (Exception ex)
@@ -1073,17 +1070,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     // ── Launch ────────────────────────────────────────────────────────────
-    private void LaunchRom_Click(object sender, RoutedEventArgs e)
+    private async void LaunchRom_Click(object sender, RoutedEventArgs e)
     {
         if (_lastOutputRomPath is null || !File.Exists(_lastOutputRomPath)) return;
-
-        // Diagnostic: show resolved paths so user can verify settings
-        static string D(string? v) => string.IsNullOrEmpty(v) ? "(not set)" : v;
-        AppendLog($"[Launch] ROM:        {_lastOutputRomPath}");
-        AppendLog($"[Launch] Emulator:   {D(_emulatorPath)}");
-        AppendLog($"[Launch] Connector:  {D(_connectorScriptPath)}");
-        AppendLog($"[Launch] SNI:        {D(_sniPath)}");
-        AppendLog($"[Launch] Tracker:    {D(_trackerUrl)}");
 
         // 1. Start SNI if configured and not already running
         if (!string.IsNullOrEmpty(_sniPath) && File.Exists(_sniPath))
@@ -1094,22 +1083,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                     { FileName = _sniPath, UseShellExecute = true });
-                System.Threading.Thread.Sleep(1000); // let SNI initialize
+                await System.Threading.Tasks.Task.Delay(1000); // let SNI initialize
                 AppendLog("SNI started.");
-            }
-            else
-            {
-                AppendLog("SNI already running — skipping.");
             }
         }
 
         // 2. Open tracker in browser
         if (!string.IsNullOrEmpty(_trackerUrl))
-        {
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 { FileName = _trackerUrl, UseShellExecute = true });
-            AppendLog($"Tracker opened: {_trackerUrl}");
-        }
 
         // 3. Launch emulator or fallback to default file handler
         try
@@ -1123,7 +1105,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 args.Append($"\"{_lastOutputRomPath}\"");
 
                 string argStr = args.ToString();
-                AppendLog($"[Launch] Args: {argStr}");
 
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
