@@ -386,6 +386,22 @@
         </Setter>
     </Style>
 
+    <!-- Call-to-action button (Select ROM) — warm amber to draw attention -->
+    <Style x:Key="WarmButton" TargetType="Button" BasedOn="{StaticResource DarkButton}">
+        <Setter Property="Background" Value="#5C3D10"/>
+        <Setter Property="BorderBrush" Value="#845820"/>
+        <Setter Property="Foreground" Value="#EFBC68"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#6E4A16"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#7E5A20"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <!-- Expander toggle button -->
     <Style x:Key="ExpanderButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>

@@ -17,7 +17,11 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 
 ### Sprite
 - **Link Sprite replacement** — apply a custom `.zspr` or `.spr` Link sprite to your ROM
-- **Online Sprite Browser** — browse and download sprites directly from the ALttP community sprite library without leaving the app
+- **Online Sprite Browser** — browse 600+ community sprites in a card grid with live preview thumbnails; animated triforce loading indicator while images load
+- **Favorites** — star any sprite to pin it to the top of the list; favorites persist across sessions
+- **Offline support** — sprite list and all preview images are cached to disk after first load; the browser works offline using the local cache; **↻ Refresh** button re-fetches from the server when you want updates
+- **Default Link preview** — Link's sprite is shown automatically when no custom sprite is selected; downloading it once and caching for subsequent launches
+- **Reset to default** — selecting "Link" in the browser clears any custom sprite and restores the default
 - **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times
 
 ### Archipelago / One-Click Launch
@@ -72,8 +76,10 @@ Click **Select ROM** and pick your ALttP Randomizer `.sfc` or `.smc` file.
 ### 3. (Optional) Set a Link Sprite
 In the sprite header at the top:
 - Click **Browse File...** to select a local `.zspr` or `.spr` sprite file
-- Click **Browse Sprites...** to pick from the online ALttP sprite community library
+- Click **Browse Sprites...** to open the online sprite browser — search, star favorites, and click **Select Sprite** to download and apply; selecting "Link" resets to the default sprite
 - Click **✕** to clear the sprite (default Link will be used)
+
+The sprite browser caches the full sprite list and all preview images to disk after the first load, so it opens instantly and works offline on subsequent uses. Use the **↻ Refresh** button to check for new sprites.
 
 ### 4. Assign music to slots
 
@@ -207,13 +213,16 @@ LTTPEnhancementTools/
 │   ├── AppSettings.cs            # App-level settings (library/output paths)
 │   ├── SettingsManager.cs        # Persist AppSettings to %LocalAppData%
 │   ├── LaunchSettings.cs         # Launch settings (emulator, SNI, tracker)
-│   └── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
+│   ├── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
+│   └── FavoritesManager.cs       # Persist sprite favorites to %LocalAppData%
 ├── Converters/
 │   └── ValueConverters.cs        # WPF value converters
 ├── Resources/
 │   ├── trackCatalog.json         # Slot number → track name mapping (61 slots)
 │   ├── Styles.xaml               # Dark theme resource dictionary
 │   └── icon.ico                  # App icon
+├── Controls/
+│   └── SpriteImageControl.xaml/.cs   # Sprite card thumbnail with triforce loading animation
 ├── App.xaml / App.xaml.cs
 ├── MainWindow.xaml / MainWindow.xaml.cs
 ├── SetupWizardWindow.xaml / SetupWizardWindow.xaml.cs

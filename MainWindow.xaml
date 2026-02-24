@@ -88,7 +88,7 @@
 
                     <Button Grid.Column="0"
                             Content="Select ROM..."
-                            Style="{StaticResource DarkButton}"
+                            Style="{StaticResource WarmButton}"
                             Padding="12,6"
                             Click="SelectRom_Click"/>
 
@@ -173,19 +173,21 @@
                         <!-- Sprite image / placeholder -->
                         <Grid Grid.Column="0" Width="64" Height="64"
                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Fallback: shown only when neither custom nor default preview is available -->
                             <Border Background="#2A2A35"
                                     BorderBrush="{StaticResource BorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="4"
-                                    Visibility="{Binding SpritePreviewUrl, Converter={StaticResource NullToVisInv}}">
+                                    Visibility="{Binding EffectivePreviewUrl, Converter={StaticResource NullToVisInv}}">
                                 <TextBlock Text="Default"
                                            FontSize="11"
                                            Foreground="{StaticResource TextFaintBrush}"
                                            HorizontalAlignment="Center"
                                            VerticalAlignment="Center"/>
                             </Border>
-                            <Image Source="{Binding SpritePreviewUrl, Converter={StaticResource UrlToImageConv}}"
-                                   Visibility="{Binding SpritePreviewUrl, Converter={StaticResource NullToVis}}"
+                            <Image Source="{Binding EffectivePreviewUrl, Converter={StaticResource UrlToImageConv}}"
+                                   Visibility="{Binding EffectivePreviewUrl, Converter={StaticResource NullToVis}}"
+                                   RenderOptions.BitmapScalingMode="NearestNeighbor"
                                    Stretch="Uniform"/>
                         </Grid>
 
@@ -339,14 +341,15 @@
                                 </Border>
 
                                 <!-- Track list: max 10 rows + own scroll -->
-                                <ScrollViewer VerticalScrollBarVisibility="Auto"
-                                              HorizontalScrollBarVisibility="Disabled"
-                                              MaxHeight="390">
-                                    <DataGrid x:Name="TrackGrid"
-                                              Style="{StaticResource DarkDataGrid}"
-                                              ItemsSource="{Binding Tracks}"
-                                              BorderThickness="0"
-                                              RowHeight="36">
+                                <DataGrid x:Name="TrackGrid"
+                                          Style="{StaticResource DarkDataGrid}"
+                                          ItemsSource="{Binding Tracks}"
+                                          BorderThickness="0"
+                                          RowHeight="36"
+                                          MaxHeight="390"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          ScrollViewer.CanContentScroll="True"
+                                          VirtualizingPanel.IsVirtualizing="True">
                                         <DataGrid.Columns>
                                             <DataGridTemplateColumn Header="Slot" Width="52" CanUserResize="False">
                                                 <DataGridTemplateColumn.CellTemplate>
@@ -439,8 +442,149 @@
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
                                         </DataGrid.Columns>
-                                    </DataGrid>
-                                </ScrollViewer>
+                                </DataGrid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Border>
+
+                <!-- ── Auto Launcher Section (collapsible) ── -->
+                <Border Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Margin="0,0,0,8">
+                    <StackPanel>
+                        <!-- Header row (always visible) -->
+                        <Grid Margin="8,6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Button Grid.Column="0"
+                                    Content="{Binding AutoLauncherExpandIcon}"
+                                    Style="{StaticResource ExpanderButton}"
+                                    Margin="0,0,6,0"
+                                    Click="ToggleAutoLauncher_Click"/>
+                            <TextBlock Grid.Column="1"
+                                       Text="AUTO LAUNCHER"
+                                       Style="{StaticResource SectionLabel}"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,10,0"/>
+                            <ComboBox x:Name="TrackerCombo"
+                                      Grid.Column="2"
+                                      Style="{StaticResource DarkComboBox}"
+                                      Margin="0,0,6,0"
+                                      SelectionChanged="TrackerCombo_SelectionChanged">
+                                <ComboBoxItem Content="(none)" Tag=""/>
+                                <ComboBoxItem Content="Dunka's Community Tracker" Tag="https://alttprtracker.mfns.dev/"/>
+                                <ComboBoxItem Content="alttprtracker.com" Tag="https://alttprtracker.com/"/>
+                            </ComboBox>
+                            <Button Grid.Column="3"
+                                    Content="Open Now"
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="8,4"
+                                    Click="OpenTracker_Click"
+                                    ToolTip="Open the tracker in your browser now"/>
+                        </Grid>
+
+                        <!-- Expandable: full launch settings -->
+                        <Border Visibility="{Binding IsAutoLauncherExpanded, Converter={StaticResource BoolToVis}}"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="0,1,0,0"
+                                Padding="12,10">
+                            <StackPanel>
+                                <Grid>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                        <RowDefinition Height="Auto"/>
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="120"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Emulator -->
+                                    <TextBlock Grid.Row="0" Grid.Column="0"
+                                               Text="Emulator"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,0,6"/>
+                                    <TextBox Grid.Row="0" Grid.Column="1"
+                                             Style="{StaticResource DarkTextBox}"
+                                             Text="{Binding EmulatorPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                             Margin="0,0,6,6"
+                                             ToolTip="Path to your emulator EXE (e.g. EmuHawk.exe)"/>
+                                    <Button Grid.Row="0" Grid.Column="2"
+                                            Content="Browse"
+                                            Style="{StaticResource DarkButton}"
+                                            Padding="8,4"
+                                            Margin="0,0,0,6"
+                                            Click="BrowseEmulator_Click"/>
+
+                                    <!-- Connector Script -->
+                                    <TextBlock Grid.Row="1" Grid.Column="0"
+                                               Text="Connector Script"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,0,6"
+                                               ToolTip="Lua connector script for Archipelago (passed as --lua to BizHawk)"/>
+                                    <TextBox Grid.Row="1" Grid.Column="1"
+                                             Style="{StaticResource DarkTextBox}"
+                                             Text="{Binding ConnectorScriptPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                             Margin="0,0,6,6"/>
+                                    <Button Grid.Row="1" Grid.Column="2"
+                                            Content="Browse"
+                                            Style="{StaticResource DarkButton}"
+                                            Padding="8,4"
+                                            Margin="0,0,0,6"
+                                            Click="BrowseConnector_Click"/>
+
+                                    <!-- SNI -->
+                                    <TextBlock Grid.Row="2" Grid.Column="0"
+                                               Text="SNI"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               Margin="0,0,0,6"
+                                               ToolTip="SNI.exe — started automatically before the emulator"/>
+                                    <TextBox Grid.Row="2" Grid.Column="1"
+                                             Style="{StaticResource DarkTextBox}"
+                                             Text="{Binding SniPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                             Margin="0,0,6,6"/>
+                                    <Button Grid.Row="2" Grid.Column="2"
+                                            Content="Browse"
+                                            Style="{StaticResource DarkButton}"
+                                            Padding="8,4"
+                                            Margin="0,0,0,6"
+                                            Click="BrowseSni_Click"/>
+
+                                    <!-- Seed URL -->
+                                    <TextBlock Grid.Row="3" Grid.Column="0"
+                                               Text="Seed URL"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               VerticalAlignment="Center"
+                                               ToolTip="Your alttpr.com seed link — saved for reference"/>
+                                    <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
+                                             Style="{StaticResource DarkTextBox}"
+                                             Text="{Binding SeedUrl, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
+                                </Grid>
+
+                                <Button Content="⚙ Run Setup Wizard…"
+                                        Style="{StaticResource DarkButton}"
+                                        HorizontalAlignment="Right"
+                                        Padding="10,4"
+                                        Margin="0,10,0,0"
+                                        Click="SetupWizard_Click"
+                                        ToolTip="Re-run the setup wizard to reconfigure emulator, connector, SNI and tracker"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -589,148 +733,6 @@
                                             Click="CleanOutputFolder_Click"
                                             ToolTip="Delete all files in the output folder"/>
                                 </Grid>
-                            </StackPanel>
-                        </Border>
-                    </StackPanel>
-                </Border>
-
-                <!-- ── Auto Launcher Section (collapsible) ── -->
-                <Border Background="{StaticResource SurfaceBrush}"
-                        BorderBrush="{StaticResource BorderBrush}"
-                        BorderThickness="1"
-                        CornerRadius="6"
-                        Margin="0,0,0,8">
-                    <StackPanel>
-                        <!-- Header row (always visible) -->
-                        <Grid Margin="8,6">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="Auto"/>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            <Button Grid.Column="0"
-                                    Content="{Binding AutoLauncherExpandIcon}"
-                                    Style="{StaticResource ExpanderButton}"
-                                    Margin="0,0,6,0"
-                                    Click="ToggleAutoLauncher_Click"/>
-                            <TextBlock Grid.Column="1"
-                                       Text="AUTO LAUNCHER"
-                                       Style="{StaticResource SectionLabel}"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,10,0"/>
-                            <ComboBox x:Name="TrackerCombo"
-                                      Grid.Column="2"
-                                      Style="{StaticResource DarkComboBox}"
-                                      Margin="0,0,6,0"
-                                      SelectionChanged="TrackerCombo_SelectionChanged">
-                                <ComboBoxItem Content="(none)" Tag=""/>
-                                <ComboBoxItem Content="Dunka's Community Tracker" Tag="https://alttprtracker.mfns.dev/"/>
-                                <ComboBoxItem Content="alttprtracker.com" Tag="https://alttprtracker.com/"/>
-                            </ComboBox>
-                            <Button Grid.Column="3"
-                                    Content="Open Now"
-                                    Style="{StaticResource DarkButton}"
-                                    Padding="8,4"
-                                    Click="OpenTracker_Click"
-                                    ToolTip="Open the tracker in your browser now"/>
-                        </Grid>
-
-                        <!-- Expandable: full launch settings -->
-                        <Border Visibility="{Binding IsAutoLauncherExpanded, Converter={StaticResource BoolToVis}}"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="0,1,0,0"
-                                Padding="12,10">
-                            <StackPanel>
-                                <Grid>
-                                    <Grid.RowDefinitions>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                        <RowDefinition Height="Auto"/>
-                                    </Grid.RowDefinitions>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="120"/>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- Emulator -->
-                                    <TextBlock Grid.Row="0" Grid.Column="0"
-                                               Text="Emulator"
-                                               FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,0,6"/>
-                                    <TextBox Grid.Row="0" Grid.Column="1"
-                                             Style="{StaticResource DarkTextBox}"
-                                             Text="{Binding EmulatorPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                             Margin="0,0,6,6"
-                                             ToolTip="Path to your emulator EXE (e.g. EmuHawk.exe)"/>
-                                    <Button Grid.Row="0" Grid.Column="2"
-                                            Content="Browse"
-                                            Style="{StaticResource DarkButton}"
-                                            Padding="8,4"
-                                            Margin="0,0,0,6"
-                                            Click="BrowseEmulator_Click"/>
-
-                                    <!-- Connector Script -->
-                                    <TextBlock Grid.Row="1" Grid.Column="0"
-                                               Text="Connector Script"
-                                               FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,0,6"
-                                               ToolTip="Lua connector script for Archipelago (passed as --lua to BizHawk)"/>
-                                    <TextBox Grid.Row="1" Grid.Column="1"
-                                             Style="{StaticResource DarkTextBox}"
-                                             Text="{Binding ConnectorScriptPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                             Margin="0,0,6,6"/>
-                                    <Button Grid.Row="1" Grid.Column="2"
-                                            Content="Browse"
-                                            Style="{StaticResource DarkButton}"
-                                            Padding="8,4"
-                                            Margin="0,0,0,6"
-                                            Click="BrowseConnector_Click"/>
-
-                                    <!-- SNI -->
-                                    <TextBlock Grid.Row="2" Grid.Column="0"
-                                               Text="SNI"
-                                               FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center"
-                                               Margin="0,0,0,6"
-                                               ToolTip="SNI.exe — started automatically before the emulator"/>
-                                    <TextBox Grid.Row="2" Grid.Column="1"
-                                             Style="{StaticResource DarkTextBox}"
-                                             Text="{Binding SniPath, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
-                                             Margin="0,0,6,6"/>
-                                    <Button Grid.Row="2" Grid.Column="2"
-                                            Content="Browse"
-                                            Style="{StaticResource DarkButton}"
-                                            Padding="8,4"
-                                            Margin="0,0,0,6"
-                                            Click="BrowseSni_Click"/>
-
-                                    <!-- Seed URL -->
-                                    <TextBlock Grid.Row="3" Grid.Column="0"
-                                               Text="Seed URL"
-                                               FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center"
-                                               ToolTip="Your alttpr.com seed link — saved for reference"/>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2"
-                                             Style="{StaticResource DarkTextBox}"
-                                             Text="{Binding SeedUrl, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"/>
-                                </Grid>
-
-                                <Button Content="⚙ Run Setup Wizard…"
-                                        Style="{StaticResource DarkButton}"
-                                        HorizontalAlignment="Right"
-                                        Padding="10,4"
-                                        Margin="0,10,0,0"
-                                        Click="SetupWizard_Click"
-                                        ToolTip="Re-run the setup wizard to reconfigure emulator, connector, SNI and tracker"/>
                             </StackPanel>
                         </Border>
                     </StackPanel>

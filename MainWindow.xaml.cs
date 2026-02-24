@@ -29,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _outputDir;
     private string? _spritePath;
     private string? _spritePreviewUrl;
+    private string? _defaultSpritePreviewUrl;
     private bool _isApplying;
     private bool _isConverting;
     private string? _emulatorPath;
@@ -106,8 +107,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string? SpritePreviewUrl
     {
         get => _spritePreviewUrl;
-        set { _spritePreviewUrl = value; OnPropertyChanged(); }
+        set { _spritePreviewUrl = value; OnPropertyChanged(); OnPropertyChanged(nameof(EffectivePreviewUrl)); }
     }
+
+    /// <summary>Local path of the default Link Nintendo preview, shown when no custom sprite is selected.</summary>
+    public string? DefaultSpritePreviewUrl
+    {
+        get => _defaultSpritePreviewUrl;
+        private set { _defaultSpritePreviewUrl = value; OnPropertyChanged(); OnPropertyChanged(nameof(EffectivePreviewUrl)); }
+    }
+
+    /// <summary>The preview to display — custom sprite if set, otherwise the default Link preview.</summary>
+    public string? EffectivePreviewUrl => _spritePreviewUrl ?? _defaultSpritePreviewUrl;
 
     public bool HasSprite => _spritePath is not null;
 
@@ -193,6 +204,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly AudioPlayer _audio = new();
     private TrackSlot? _playingSlot;
     private readonly ApplyEngine _applyEngine = new();
+    private static readonly System.Net.Http.HttpClient Http = new();
+
+    private static string GetSpritePreviewCachePath(string url)
+    {
+        // Use the same Previews cache dir as SpriteImageControl so images downloaded during
+        // browsing are reused immediately without a second HTTP request.
+        try
+        {
+            var fileName = Path.GetFileName(new Uri(url).LocalPath);
+            if (string.IsNullOrEmpty(fileName))
+                fileName = Math.Abs(url.GetHashCode()).ToString("x8") + ".png";
+            fileName = string.Concat(fileName.Split(Path.GetInvalidFileNameChars()));
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "LTTPEnhancementTools", "SpriteCache", "Previews", fileName);
+        }
+        catch
+        {
+            var hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(url));
+            return Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "LTTPEnhancementTools", "SpriteCache", "Previews",
+                Convert.ToHexString(hash)[..16] + ".png");
+        }
+    }
 
     // ── Constructor ───────────────────────────────────────────────────────
     public MainWindow()
@@ -252,7 +288,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (savedSprite is not null && File.Exists(savedSprite))
         {
             _spritePath = savedSprite;
-            _spritePreviewUrl = autoState.LastSpritePreviewUrl.NullIfEmpty();
+            var savedPreview = autoState.LastSpritePreviewUrl.NullIfEmpty();
+            if (savedPreview is not null && savedPreview.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                // Stale web URL saved before caching completed (e.g. app crashed) — re-cache it.
+                // Use Dispatcher so the constructor finishes before the async work starts.
+                Dispatcher.InvokeAsync(() => _ = CacheSpritePreviewAsync(savedPreview));
+            }
+            else
+            {
+                _spritePreviewUrl = savedPreview;
+            }
         }
 
         string? savedPlaylist = autoState.LastPlaylistPath.NullIfEmpty();
@@ -292,6 +338,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         // Show setup wizard on first run — deferred so main window is fully rendered first
         if (!LaunchSettingsManager.FileExists())
             Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Background, RunSetupWizard);
+
+        // Load the default Link Nintendo preview from the cached sprites list (if available)
+        _ = LoadDefaultLinkPreviewAsync();
+    }
+
+    private async Task LoadDefaultLinkPreviewAsync()
+    {
+        try
+        {
+            // Prefer the URL from the loaded sprite list (handles future URL changes),
+            // but fall back to the hardcoded S3 URL so this works on first run too.
+            var previewUrl = SpriteBrowserWindow.DefaultLinkPreviewUrl
+                          ?? SpriteBrowserWindow.DefaultLinkPreviewFallbackUrl;
+
+            var cachePath = GetSpritePreviewCachePath(previewUrl);
+            if (!File.Exists(cachePath))
+            {
+                var bytes = await Http.GetByteArrayAsync(previewUrl);
+                Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+                await File.WriteAllBytesAsync(cachePath, bytes);
+            }
+
+            DefaultSpritePreviewUrl = cachePath;
+        }
+        catch { }
     }
 
     private void SyncTrackerCombo()
@@ -1061,6 +1132,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         var window = new SpriteBrowserWindow { Owner = this };
         if (window.ShowDialog() != true) return;
+
+        // "Link" selected — reset to default (no custom sprite)
+        if (window.SelectedIsDefault)
+        {
+            ClearSprite();
+            return;
+        }
+
         if (window.SelectedSpritePath is null) return;
 
         string? error = SpriteApplier.Validate(window.SelectedSpritePath);
@@ -1071,11 +1150,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SpritePath = window.SelectedSpritePath;
-        SpritePreviewUrl = window.SelectedSpritePreviewUrl;
+
+        // Don't set web URL directly — the converter can't load HTTPS in .NET 8.
+        // CacheSpritePreviewAsync finds the already-downloaded preview (from SpriteImageControl's
+        // cache) or downloads it, then sets SpritePreviewUrl to the local path.
+        if (window.SelectedSpritePreviewUrl is not null)
+            _ = CacheSpritePreviewAsync(window.SelectedSpritePreviewUrl);
+
         AppendLog($"Sprite selected: {Path.GetFileNameWithoutExtension(window.SelectedSpritePath)}");
     }
 
-    private void ClearSprite_Click(object sender, RoutedEventArgs e)
+    private async Task CacheSpritePreviewAsync(string url)
+    {
+        try
+        {
+            string cachePath = GetSpritePreviewCachePath(url);
+            if (!File.Exists(cachePath))
+            {
+                var bytes = await Http.GetByteArrayAsync(url);
+                Directory.CreateDirectory(Path.GetDirectoryName(cachePath)!);
+                await File.WriteAllBytesAsync(cachePath, bytes);
+            }
+            // Switch to local cached file — unique per URL so binding always updates
+            SpritePreviewUrl = cachePath;
+            SaveAutoState();
+        }
+        catch { /* best-effort — URL still shows in the current session */ }
+    }
+
+    private void ClearSprite_Click(object sender, RoutedEventArgs e) => ClearSprite();
+
+    private void ClearSprite()
     {
         SpritePath = null;
         SpritePreviewUrl = null;

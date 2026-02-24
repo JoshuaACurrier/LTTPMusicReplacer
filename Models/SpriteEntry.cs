@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
 
 namespace LTTPEnhancementTools.Models;
 
-public class SpriteEntry
+public class SpriteEntry : INotifyPropertyChanged
 {
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
@@ -22,4 +24,26 @@ public class SpriteEntry
 
     [JsonPropertyName("usage")]
     public List<string> Usage { get; set; } = new();
+
+    private bool _isFavorite;
+
+    [JsonIgnore]
+    public bool IsFavorite
+    {
+        get => _isFavorite;
+        set
+        {
+            if (_isFavorite == value) return;
+            _isFavorite = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(StarGlyph));
+        }
+    }
+
+    [JsonIgnore]
+    public string StarGlyph => _isFavorite ? "★" : "☆";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 }

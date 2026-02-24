@@ -66,21 +66,28 @@ public class BoolToVisibilityInverseConverter : IValueConverter
 }
 
 /// <summary>
-/// Converts a URL string to a BitmapImage using WPF's built-in async HTTP download.
-/// Returns null for null/empty strings.
+/// Converts a local file path to a BitmapImage loaded via MemoryStream.
+/// Web URLs are not supported — callers must cache to disk first (SpritePreviewUrl is always local).
 /// </summary>
 public class UrlToImageSourceConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is not string url || string.IsNullOrEmpty(url)) return null;
+        if (value is not string path || string.IsNullOrEmpty(path)) return null;
+        if (path.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return null;
         try
         {
+            var bytes = System.IO.File.ReadAllBytes(path);
+            // MemoryStream must stay open until EndInit() completes (BitmapCacheOption.OnLoad
+            // reads synchronously, so it's safe to dispose after EndInit returns).
+            using var ms = new System.IO.MemoryStream(bytes);
             var bmp = new BitmapImage();
             bmp.BeginInit();
-            bmp.UriSource = new Uri(url, UriKind.Absolute);
-            bmp.DecodePixelWidth = 64; // decode at thumbnail size to save memory
+            bmp.DecodePixelWidth = 64;
+            bmp.StreamSource = ms;
+            bmp.CacheOption = BitmapCacheOption.OnLoad;
             bmp.EndInit();
+            bmp.Freeze();
             return bmp;
         }
         catch
