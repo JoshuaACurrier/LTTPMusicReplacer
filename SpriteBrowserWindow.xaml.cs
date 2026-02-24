@@ -32,6 +32,9 @@ public partial class SpriteBrowserWindow : Window
     /// <summary>Set after the user clicks "Select Sprite". Null if cancelled.</summary>
     public string? SelectedSpritePath { get; private set; }
 
+    /// <summary>Preview image URL for the selected sprite. Null if cancelled.</summary>
+    public string? SelectedSpritePreviewUrl { get; private set; }
+
     // ── Constructor ───────────────────────────────────────────────────────
     public SpriteBrowserWindow()
     {
@@ -138,6 +141,7 @@ public partial class SpriteBrowserWindow : Window
             }
 
             SelectedSpritePath = localPath;
+            SelectedSpritePreviewUrl = entry.Preview;
             DialogResult = true;
             Close();
         }

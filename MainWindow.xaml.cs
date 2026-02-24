@@ -8,6 +8,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using LTTPEnhancementTools.Models;
 using LTTPEnhancementTools.Services;
+using System.Windows.Controls.Primitives;
 using Microsoft.Win32;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
@@ -27,8 +28,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _outputBaseName;
     private string? _outputDir;
     private string? _spritePath;
+    private string? _spritePreviewUrl;
     private bool _isApplying;
     private bool _isConverting;
+    private bool _isDirty;
 
     public ObservableCollection<TrackSlot> Tracks { get; } = new();
 
@@ -41,7 +44,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string? OutputBaseName
     {
         get => _outputBaseName;
-        set { _outputBaseName = value; OnPropertyChanged(); OnPropertyChanged(nameof(CanApply)); }
+        set { _outputBaseName = value; _isDirty = true; OnPropertyChanged(); OnPropertyChanged(nameof(CanApply)); }
     }
 
     public string? OutputDir
@@ -54,6 +57,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         get => _spritePath;
         set { _spritePath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSprite)); OnPropertyChanged(nameof(SpriteDisplayName)); }
+    }
+
+    public string? SpritePreviewUrl
+    {
+        get => _spritePreviewUrl;
+        set { _spritePreviewUrl = value; OnPropertyChanged(); }
     }
 
     public bool HasSprite => _spritePath is not null;
@@ -80,6 +89,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    // ── Library ───────────────────────────────────────────────────────────
+    private readonly MusicLibrary _library = new();
+    private TrackSlot? _libraryTargetSlot;
+    private LibraryEntry? _libraryPlayingEntry;
+
+    private static string DefaultLibraryFolder =>
+        Path.Combine(
+            Path.GetDirectoryName(Environment.ProcessPath!)!,
+            "MusicLibrary");
+
+    public string? LibraryFolder => _library.LibraryFolder;
+    public string LibrarySongCount => _library.Entries.Count == 0
+        ? string.Empty
+        : $"· {_library.Entries.Count} song{(_library.Entries.Count != 1 ? "s" : "")}";
+
     // ── Services ─────────────────────────────────────────────────────────
     private readonly AudioPlayer _audio = new();
     private TrackSlot? _playingSlot;
@@ -103,6 +127,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
 
         _applyEngine.ConflictsDetected += OnConflictsDetected;
+
+        // Set up music library folder (auto-create next to exe on first run)
+        var settings = SettingsManager.Load();
+        string libraryPath = string.IsNullOrEmpty(settings.LibraryFolder)
+            ? DefaultLibraryFolder
+            : settings.LibraryFolder;
+
+        bool isFirstRun = string.IsNullOrEmpty(settings.LibraryFolder);
+        Directory.CreateDirectory(libraryPath);
+        _library.SetFolder(libraryPath);
+
+        if (isFirstRun)
+        {
+            SettingsManager.Save(new AppSettings { LibraryFolder = libraryPath });
+            MessageBox.Show(
+                $"Your Music Library folder has been set up at:\n\n{libraryPath}\n\n" +
+                "Drop your audio files there and they'll appear in the library picker on each track row.",
+                "Music Library Ready",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+        }
+
+        OnPropertyChanged(nameof(LibraryFolder));
+        OnPropertyChanged(nameof(LibrarySongCount));
     }
 
     // ── Track Catalog ─────────────────────────────────────────────────────
@@ -145,6 +193,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _romPath = dlg.FileName;
             RomBaseName = Path.GetFileNameWithoutExtension(dlg.FileName);
             OutputBaseName = RomBaseName;
+            _isDirty = true;
             AppendLog($"ROM selected: {_romPath}");
         }
     }
@@ -176,6 +225,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (dlg.ShowDialog(this) != true) return;
 
         string path = dlg.FileName;
+
+        // Offer to copy to library if library is configured and file isn't already inside it
+        if (_library.LibraryFolder is not null)
+        {
+            string destFileName = Path.GetFileName(path);
+            string destPath     = Path.Combine(_library.LibraryFolder, destFileName);
+            bool alreadyInLibrary = path.Equals(destPath, StringComparison.OrdinalIgnoreCase)
+                                 || path.StartsWith(_library.LibraryFolder + Path.DirectorySeparatorChar,
+                                                    StringComparison.OrdinalIgnoreCase);
+
+            if (!alreadyInLibrary)
+            {
+                var copyResult = MessageBox.Show(
+                    $"Copy \"{destFileName}\" to your Music Library?\n\n" +
+                    "This lets you reuse it from the library picker on other slots.",
+                    "Add to Music Library?",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (copyResult == MessageBoxResult.Yes)
+                {
+                    if (!File.Exists(destPath))
+                    {
+                        File.Copy(path, destPath);
+                        _library.Refresh();
+                        OnPropertyChanged(nameof(LibrarySongCount));
+                        AppendLog($"Copied to library: {destFileName}");
+                    }
+                    else
+                    {
+                        AppendLog($"File already in library: {destFileName}");
+                    }
+                    path = destPath; // use library copy as source going forward
+                }
+            }
+        }
+
         string ext = Path.GetExtension(path).ToLowerInvariant();
 
         if (ext == ".pcm")
@@ -190,6 +276,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
                 AppendLog($"Slot {slot.SlotNumber} assigned: {Path.GetFileName(path)}");
 
+            _isDirty = true;
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -236,6 +323,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (validationError is not null)
                     AppendLog($"[WARN] Slot {slot.SlotNumber}: converted file issue: {validationError}");
 
+                _isDirty = true;
                 OnPropertyChanged(nameof(AssignedCountText));
                 OnPropertyChanged(nameof(CanApply));
             }
@@ -260,6 +348,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
             slot.PcmPath = null;
             slot.ValidationError = null;
+            _isDirty = true;
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -324,6 +413,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         string? error = ConfigManager.Save(dlg.FileName, config);
         if (error is null)
         {
+            _isDirty = false;
             AppendLog($"Config saved: {dlg.FileName}");
             ShowConfigMessage("Config saved.", isError: false);
         }
@@ -354,6 +444,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         ApplyConfig(config!);
+        _isDirty = false;
         AppendLog($"Config loaded: {dlg.FileName} ({config!.Tracks.Count} track(s))");
         ShowConfigMessage($"Config loaded. {config.Tracks.Count} track(s) restored.", isError: false);
     }
@@ -368,6 +459,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             RomPath = _romPath ?? string.Empty,
             SpritePath = _spritePath ?? string.Empty,
+            SpritePreviewUrl = _spritePreviewUrl ?? string.Empty,
             Tracks = tracks
         };
     }
@@ -394,6 +486,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         // Set sprite
         SpritePath = string.IsNullOrEmpty(config.SpritePath) ? null : config.SpritePath;
+        SpritePreviewUrl = string.IsNullOrEmpty(config.SpritePreviewUrl) ? null : config.SpritePreviewUrl;
 
         // Assign tracks
         foreach (var (key, pcmPath) in config.Tracks)
@@ -441,6 +534,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (dlg.ShowDialog() == System.Windows.Forms.DialogResult.OK)
         {
             OutputDir = dlg.SelectedPath;
+            _isDirty = true;
             AppendLog($"Output folder: {OutputDir}");
         }
     }
@@ -491,6 +585,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AppendLog($"Apply succeeded. {result.FilesWritten.Count} file(s) written to: {_outputDir}");
             foreach (var f in result.FilesWritten)
                 AppendLog($"  + {Path.GetFileName(f)}");
+
+            if (_isDirty)
+            {
+                var saveResult = MessageBox.Show(
+                    "Apply succeeded! Would you like to save your current settings?",
+                    "Save Settings?",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+                if (saveResult == MessageBoxResult.Yes)
+                    SaveConfig_Click(null!, null!);
+            }
         }
         catch (OperationCanceledException)
         {
@@ -541,6 +646,154 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         });
     }
 
+    // ── Music Library ─────────────────────────────────────────────────────
+    private void BrowseLibrary_Click(object sender, RoutedEventArgs e)
+    {
+        using var dlg = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "Select Music Library Folder",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true
+        };
+
+        if (dlg.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
+
+        Directory.CreateDirectory(dlg.SelectedPath);
+        _library.SetFolder(dlg.SelectedPath);
+        SettingsManager.Save(new AppSettings { LibraryFolder = dlg.SelectedPath });
+        OnPropertyChanged(nameof(LibraryFolder));
+        OnPropertyChanged(nameof(LibrarySongCount));
+        AppendLog($"Music library: {dlg.SelectedPath} ({_library.Entries.Count} song(s) found)");
+    }
+
+    private void LibraryPick_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not System.Windows.Controls.Primitives.ButtonBase btn || btn.CommandParameter is not TrackSlot slot) return;
+
+        if (_library.LibraryFolder is null)
+        {
+            AppendLog("Music library not configured.");
+            return;
+        }
+
+        // Refresh to pick up any files added since last open
+        _library.Refresh();
+        OnPropertyChanged(nameof(LibrarySongCount));
+
+        if (_library.Entries.Count == 0)
+        {
+            AppendLog($"Music library is empty: {_library.LibraryFolder}");
+            return;
+        }
+
+        _libraryTargetSlot = slot;
+        LibrarySearch.Text = string.Empty;
+        LibraryList.ItemsSource = _library.Entries;
+        LibraryPopup.PlacementTarget = btn;
+        LibraryPopup.Placement = PlacementMode.Bottom;
+        LibraryPopup.IsOpen = true;
+        LibrarySearch.Focus();
+    }
+
+    private void LibrarySearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        var q = LibrarySearch.Text.Trim();
+        LibraryList.ItemsSource = string.IsNullOrEmpty(q)
+            ? (IEnumerable<LibraryEntry>)_library.Entries
+            : _library.Entries.Where(en => en.Name.Contains(q, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private void LibraryItemPlay_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement el || el.Tag is not LibraryEntry entry) return;
+
+        // Stop any currently playing slot preview
+        if (_playingSlot is not null)
+        {
+            _audio.Stop();
+            _playingSlot.IsPlaying = false;
+            _playingSlot = null;
+        }
+
+        _libraryPlayingEntry = entry;
+        string? err = _audio.Play(entry.AssignablePath);
+        if (err is not null)
+            AppendLog($"[ERROR] Preview failed: {err}");
+        else
+            AppendLog($"Previewing: {entry.Name}");
+    }
+
+    private void LibraryItemAssign_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement el || el.Tag is not LibraryEntry entry) return;
+        _ = AssignLibraryEntryAsync(entry, _libraryTargetSlot!);
+    }
+
+    private void LibraryPopup_Closed(object? sender, EventArgs e)
+    {
+        if (_libraryPlayingEntry is not null)
+        {
+            _audio.Stop();
+            _libraryPlayingEntry = null;
+        }
+    }
+
+    private async Task AssignLibraryEntryAsync(LibraryEntry entry, TrackSlot slot)
+    {
+        LibraryPopup.IsOpen = false;
+
+        if (!entry.NeedsConversion)
+        {
+            // PCM or valid cache — assign directly
+            string pcmPath = entry.AssignablePath;
+            string? err = PcmValidator.Validate(pcmPath);
+            slot.PcmPath = pcmPath;
+            slot.ValidationError = err;
+
+            AppendLog(err is null
+                ? $"Slot {slot.SlotNumber} assigned from library: {entry.Name}"
+                : $"[WARN] Slot {slot.SlotNumber}: {err}");
+        }
+        else
+        {
+            // Convert and cache
+            string cacheDir = Path.Combine(_library.LibraryFolder!, "_cache");
+            Directory.CreateDirectory(cacheDir);
+            string destPath = _library.GetCacheTargetPath(entry.SourcePath);
+
+            AppendLog($"[Slot {slot.SlotNumber}] Converting and caching: {entry.Name}...");
+
+            _isConverting = true;
+            OnPropertyChanged(nameof(CanApply));
+            try
+            {
+                string? err = await PcmConverter.ConvertAsync(entry.SourcePath, destPath);
+                if (err is not null)
+                {
+                    AppendLog($"[ERROR] Slot {slot.SlotNumber}: {err}");
+                    return;
+                }
+
+                string? valErr = PcmValidator.Validate(destPath);
+                slot.PcmPath = destPath;
+                slot.ValidationError = valErr;
+
+                _library.Refresh();
+                OnPropertyChanged(nameof(LibrarySongCount));
+                AppendLog($"[Slot {slot.SlotNumber}] Cached + assigned: {entry.Name}");
+            }
+            finally
+            {
+                _isConverting = false;
+                OnPropertyChanged(nameof(CanApply));
+            }
+        }
+
+        _isDirty = true;
+        OnPropertyChanged(nameof(AssignedCountText));
+        OnPropertyChanged(nameof(CanApply));
+    }
+
     // ── Sprite Handlers ───────────────────────────────────────────────────
     private void BrowseSprite_Click(object sender, RoutedEventArgs e)
     {
@@ -562,6 +815,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SpritePath = dlg.FileName;
+        SpritePreviewUrl = null;
+        _isDirty = true;
         AppendLog($"Sprite selected: {Path.GetFileName(dlg.FileName)}");
     }
 
@@ -579,12 +834,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         SpritePath = window.SelectedSpritePath;
+        SpritePreviewUrl = window.SelectedSpritePreviewUrl;
+        _isDirty = true;
         AppendLog($"Sprite selected: {Path.GetFileNameWithoutExtension(window.SelectedSpritePath)}");
     }
 
     private void ClearSprite_Click(object sender, RoutedEventArgs e)
     {
         SpritePath = null;
+        SpritePreviewUrl = null;
+        _isDirty = true;
         AppendLog("Sprite cleared.");
     }
 

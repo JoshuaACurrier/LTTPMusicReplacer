@@ -16,6 +16,9 @@ public class AppConfig
     [JsonPropertyName("spritePath")]
     public string SpritePath { get; set; } = string.Empty;
 
+    [JsonPropertyName("spritePreviewUrl")]
+    public string SpritePreviewUrl { get; set; } = string.Empty;
+
     [JsonPropertyName("lastModified")]
     public string LastModified { get; set; } = string.Empty;
 }

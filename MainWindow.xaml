@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:LTTPEnhancementTools.Converters"
         xmlns:models="clr-namespace:LTTPEnhancementTools.Models"
-        Title="ALttP MSU-1 Music Switcher"
+        Title="ALttP Enhancement Tools"
         Icon="Resources/icon.ico"
         Width="1100" Height="800"
         MinWidth="800" MinHeight="560"
@@ -17,6 +17,7 @@
         <conv:ErrorToBrushConverter x:Key="ErrToBrush"/>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis"/>
         <conv:BoolToVisibilityInverseConverter x:Key="BoolToVisInv"/>
+        <conv:UrlToImageSourceConverter x:Key="UrlToImageConv"/>
     </Window.Resources>
 
     <DockPanel>
@@ -35,7 +36,7 @@
 
                 <!-- Left: app name + ROM info -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
-                    <TextBlock Text="ALttP MSU-1 Music Switcher"
+                    <TextBlock Text="ALttP Enhancement Tools"
                                FontSize="15" FontWeight="Bold"
                                Foreground="{StaticResource TextBrush}"
                                VerticalAlignment="Center"
@@ -63,13 +64,62 @@
                     </StackPanel>
                 </StackPanel>
 
+                <!-- Center: Music Library -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal"
+                            HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="LIBRARY"
+                               Style="{StaticResource SectionLabel}"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Center"/>
+                    <Border Background="{StaticResource SurfaceAltBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,4"
+                            Margin="0,0,6,0"
+                            MinWidth="140"
+                            MaxWidth="300">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Consolas" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       MaxWidth="220">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding LibraryFolder}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
+                                        <Setter Property="FontStyle" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding LibraryFolder}" Value="{x:Null}">
+                                                <Setter Property="Text" Value="No library folder set"/>
+                                                <Setter Property="FontStyle" Value="Italic"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBlock Text="{Binding LibrarySongCount}"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextMutedBrush}"
+                                       VerticalAlignment="Center"
+                                       Margin="6,0,0,0"/>
+                        </StackPanel>
+                    </Border>
+                    <Button Content="Change Location..."
+                            Style="{StaticResource DarkButton}"
+                            Padding="8,4"
+                            Click="BrowseLibrary_Click"
+                            ToolTip="Move the Music Library to a different folder"/>
+                </StackPanel>
+
                 <!-- Right: Config buttons -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="Load Config"
+                    <Button Content="Load"
                             Style="{StaticResource DarkButton}"
                             Margin="0,0,8,0"
                             Click="LoadConfig_Click"/>
-                    <Button Content="Save Config"
+                    <Button Content="Save"
                             Style="{StaticResource DarkButton}"
                             Margin="0,0,8,0"
                             IsEnabled="{Binding HasRom}"
@@ -86,13 +136,104 @@
         <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
         <Grid Margin="16">
             <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*" MinHeight="200"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="130" MinHeight="80"/>
             </Grid.RowDefinitions>
 
-            <!-- ── Track List ── -->
+            <!-- ── Sprite Header ── -->
             <Border Grid.Row="0"
+                    Background="{StaticResource SurfaceBrush}"
+                    BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="8"
+                    Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="80"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Sprite image / placeholder -->
+                    <Grid Grid.Column="0" Width="64" Height="64"
+                          HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Default placeholder (shown when no preview URL) -->
+                        <Border Background="#2A2A35"
+                                BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Visibility="{Binding SpritePreviewUrl, Converter={StaticResource NullToVisInv}}">
+                            <TextBlock Text="Default"
+                                       FontSize="11"
+                                       Foreground="{StaticResource TextFaintBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <!-- Actual preview image -->
+                        <Image Source="{Binding SpritePreviewUrl, Converter={StaticResource UrlToImageConv}}"
+                               Visibility="{Binding SpritePreviewUrl, Converter={StaticResource NullToVis}}"
+                               Stretch="Uniform"/>
+                    </Grid>
+
+                    <!-- Info and buttons -->
+                    <Grid Grid.Column="1" VerticalAlignment="Center" Margin="8,0,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Label + sprite name -->
+                        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                            <TextBlock Text="LINK SPRITE"
+                                       Style="{StaticResource SectionLabel}"
+                                       Margin="0,0,10,0"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock VerticalAlignment="Center" FontSize="13">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="{Binding SpriteDisplayName}"/>
+                                        <Setter Property="Foreground" Value="{StaticResource TextBrush}"/>
+                                        <Setter Property="FontStyle" Value="Normal"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasSprite}" Value="False">
+                                                <Setter Property="Text" Value="Default (none selected)"/>
+                                                <Setter Property="FontStyle" Value="Italic"/>
+                                                <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <!-- Browse buttons -->
+                        <StackPanel Grid.Row="1" Orientation="Horizontal">
+                            <Button Content="Browse File..."
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Click="BrowseSprite_Click"
+                                    ToolTip="Select a local .zspr or .spr file"/>
+                            <Button Content="Browse Sprites..."
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="10,4"
+                                    Margin="0,0,6,0"
+                                    Click="BrowseSpritesOnline_Click"
+                                    ToolTip="Pick a sprite from the online ALttP sprite library"/>
+                            <Button Content="✕"
+                                    Style="{StaticResource ClearButton}"
+                                    Visibility="{Binding HasSprite, Converter={StaticResource BoolToVis}}"
+                                    Click="ClearSprite_Click"
+                                    ToolTip="Remove sprite"/>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ── Track List ── -->
+            <Border Grid.Row="1"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"
@@ -157,7 +298,7 @@
                         </DataGridTemplateColumn>
 
                         <!-- Actions -->
-                        <DataGridTemplateColumn Header="Actions" Width="180" CanUserResize="False">
+                        <DataGridTemplateColumn Header="Actions" Width="230" CanUserResize="False">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate DataType="{x:Type models:TrackSlot}">
                                     <StackPanel Orientation="Horizontal"
@@ -173,6 +314,15 @@
                                                 CommandParameter="{Binding}"
                                                 Click="PlayStop_Click"
                                                 ToolTip="Preview track"/>
+
+                                        <!-- Library picker -->
+                                        <Button Content="Library"
+                                                Style="{StaticResource DarkButton}"
+                                                Padding="8,4" FontSize="12"
+                                                Margin="0,0,6,0"
+                                                CommandParameter="{Binding}"
+                                                Click="LibraryPick_Click"
+                                                ToolTip="Pick from Music Library"/>
 
                                         <!-- Replace / Pick File -->
                                         <Button Padding="8,4" FontSize="12"
@@ -207,7 +357,7 @@
             </Border>
 
             <!-- ── Apply Section ── -->
-            <Border Grid.Row="1"
+            <Border Grid.Row="2"
                     Background="{StaticResource SurfaceBrush}"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="1"
@@ -216,8 +366,6 @@
                     Margin="0,12,0,12">
                 <Grid>
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
@@ -272,81 +420,12 @@
                                 Click="BrowseOutputDir_Click"/>
                     </Grid>
 
-                    <!-- Sprite row -->
-                    <TextBlock Grid.Row="2"
-                               Text="LINK SPRITE (OPTIONAL)"
-                               Style="{StaticResource SectionLabel}"/>
-
-                    <Grid Grid.Row="3" Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <!-- Sprite path display -->
-                        <Border Grid.Column="0"
-                                Background="{StaticResource SurfaceAltBrush}"
-                                BorderBrush="{StaticResource BorderBrush}"
-                                BorderThickness="1"
-                                CornerRadius="4"
-                                Padding="10,6"
-                                Margin="0,0,8,0"
-                                MinHeight="34">
-                            <TextBlock FontFamily="Consolas" FontSize="12"
-                                       VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis">
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock">
-                                        <Setter Property="Text" Value="{Binding SpriteDisplayName}"/>
-                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}"/>
-                                        <Setter Property="FontStyle" Value="Normal"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding HasSprite}" Value="False">
-                                                <Setter Property="Text" Value="No sprite selected (optional)"/>
-                                                <Setter Property="FontStyle" Value="Italic"/>
-                                                <Setter Property="Foreground" Value="{StaticResource TextFaintBrush}"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </Border>
-
-                        <!-- Browse local file -->
-                        <Button Grid.Column="1"
-                                Content="Browse File..."
-                                Style="{StaticResource DarkButton}"
-                                Padding="12,6"
-                                Margin="0,0,6,0"
-                                Click="BrowseSprite_Click"
-                                ToolTip="Select a local .zspr or .spr file"/>
-
-                        <!-- Browse online sprites -->
-                        <Button Grid.Column="2"
-                                Content="Browse Sprites..."
-                                Style="{StaticResource DarkButton}"
-                                Padding="12,6"
-                                Margin="0,0,6,0"
-                                Click="BrowseSpritesOnline_Click"
-                                ToolTip="Pick a sprite from the online ALttP sprite library"/>
-
-                        <!-- Clear sprite -->
-                        <Button Grid.Column="3"
-                                Content="✕"
-                                Style="{StaticResource ClearButton}"
-                                Visibility="{Binding HasSprite, Converter={StaticResource BoolToVis}}"
-                                Click="ClearSprite_Click"
-                                ToolTip="Remove sprite"/>
-                    </Grid>
-
                     <!-- Base name row -->
-                    <TextBlock Grid.Row="4"
+                    <TextBlock Grid.Row="2"
                                Text="OUTPUT BASE NAME"
                                Style="{StaticResource SectionLabel}"/>
 
-                    <TextBox Grid.Row="5"
+                    <TextBox Grid.Row="3"
                              Style="{StaticResource DarkTextBox}"
                              Text="{Binding OutputBaseName, UpdateSourceTrigger=PropertyChanged}"
                              FontFamily="Consolas"
@@ -354,7 +433,7 @@
                              ToolTip="File name stem used for all output files (e.g. myrom → myrom.sfc, myrom.msu, myrom-2.pcm)"/>
 
                     <!-- Apply row -->
-                    <Grid Grid.Row="6">
+                    <Grid Grid.Row="4">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="Auto"/>
@@ -386,7 +465,7 @@
                     </Grid>
 
                     <!-- Progress bar -->
-                    <Grid Grid.Row="7" x:Name="ProgressSection" Visibility="Collapsed" Margin="0,8,0,0">
+                    <Grid Grid.Row="5" x:Name="ProgressSection" Visibility="Collapsed" Margin="0,8,0,0">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
                             <RowDefinition Height="Auto"/>
@@ -404,8 +483,114 @@
                 </Grid>
             </Border>
 
+            <!-- ── Library Popup ── (no Grid.Row → floats; Popup renders outside layout) -->
+            <Popup x:Name="LibraryPopup"
+                   StaysOpen="False"
+                   AllowsTransparency="True"
+                   PopupAnimation="Fade"
+                   Closed="LibraryPopup_Closed">
+                <Border Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="10"
+                        Width="320"
+                        MaxHeight="380">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+
+                        <!-- Search box -->
+                        <TextBox x:Name="LibrarySearch"
+                                 Grid.Row="0"
+                                 Style="{StaticResource DarkTextBox}"
+                                 Margin="0,0,0,6"
+                                 TextChanged="LibrarySearch_TextChanged"/>
+
+                        <!-- Song list — ItemsControl with play + single-click-assign per row -->
+                        <ScrollViewer Grid.Row="1"
+                                      MaxHeight="300"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled">
+                            <ItemsControl x:Name="LibraryList">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,1">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="30"/>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.Style>
+                                                <Style TargetType="Grid">
+                                                    <Setter Property="Background" Value="Transparent"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{StaticResource RowHoverBrush}"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Grid.Style>
+
+                                            <!-- Play button (enabled only when cached/PCM) -->
+                                            <Button Grid.Column="0"
+                                                    Style="{StaticResource IconButton}"
+                                                    Width="22" Height="22"
+                                                    Margin="2"
+                                                    Tag="{Binding}"
+                                                    Click="LibraryItemPlay_Click"
+                                                    ToolTip="Preview this song"
+                                                    IsEnabled="{Binding IsCached}">
+                                                <TextBlock Text="▶" FontSize="8"/>
+                                            </Button>
+
+                                            <!-- Song name — click to assign -->
+                                            <Button Grid.Column="1"
+                                                    Background="Transparent"
+                                                    BorderThickness="0"
+                                                    HorizontalContentAlignment="Left"
+                                                    Padding="4,4"
+                                                    Cursor="Hand"
+                                                    Tag="{Binding}"
+                                                    Click="LibraryItemAssign_Click"
+                                                    ToolTip="Click to assign to slot">
+                                                <TextBlock Text="{Binding Name}"
+                                                           FontSize="12"
+                                                           Foreground="{StaticResource TextBrush}"
+                                                           TextTrimming="CharacterEllipsis"/>
+                                            </Button>
+
+                                            <!-- Format tag -->
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding FormatTag}"
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="4,0"/>
+
+                                            <!-- Cached indicator -->
+                                            <TextBlock Grid.Column="3"
+                                                       Text="✓"
+                                                       FontSize="10"
+                                                       Foreground="{StaticResource SuccessBrush}"
+                                                       VerticalAlignment="Center"
+                                                       Margin="0,0,4,0"
+                                                       ToolTip="Already converted and cached"
+                                                       Visibility="{Binding IsCached, Converter={StaticResource BoolToVis}}"/>
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Border>
+            </Popup>
+
             <!-- ── Log Viewer ── -->
-            <Border Grid.Row="2"
+            <Border Grid.Row="3"
                     BorderBrush="{StaticResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="6"

@@ -38,6 +38,7 @@ public static class ConfigManager
             config.LastModified = DateTime.UtcNow.ToString("o");
             config.RomPath = config.RomPath.Replace('\\', '/');
             config.SpritePath = config.SpritePath.Replace('\\', '/');
+            config.SpritePreviewUrl = config.SpritePreviewUrl.Replace('\\', '/');
             var normalizedTracks = config.Tracks
                 .ToDictionary(kv => kv.Key, kv => kv.Value.Replace('\\', '/'));
             config.Tracks = normalizedTracks;

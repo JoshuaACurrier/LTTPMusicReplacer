@@ -1,18 +1,30 @@
-# ALttP MSU-1 Music Switcher
+# ALttP Enhancement Tools
 
-A Windows desktop utility for managing MSU-1 music packs for the **A Link to the Past Randomizer**. Pick audio files for each of the 61 in-game music slots, preview them, and assemble a complete MSU-1 pack in one click.
+A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. Manage MSU-1 music packs, replace the Link sprite, and assemble a complete customized pack in one click.
 
 ---
 
 ## Features
 
+### Music
 - **61-slot track list** — all ALttP music slots listed by name, including extended dungeon and boss tracks
-- **Output file renaming** — customize the base name used for all output files before applying (e.g. `mypack.sfc`, `mypack.msu`, `mypack-2.pcm`)
-- **Audio conversion built-in** — import MP3, WAV, WMA, AAC, M4A, AIFF, and more; the app converts them to MSU-1 PCM format automatically
+- **Music Library** — a dedicated `MusicLibrary/` folder next to the app stores all your audio files in one place; songs appear in a per-slot picker popup with instant preview
+- **Per-slot library picker** — click **Library** on any track row to open a popup of all your songs; hit ▶ to audition before assigning; single-click assigns to the slot
+- **Audio conversion built-in** — import MP3, WAV, WMA, AAC, M4A, AIFF, and more; files are converted to MSU-1 PCM automatically and cached so the same file is never converted twice
+- **Copy-to-Library prompt** — when browsing for a file manually, the app offers to copy it to your Music Library for future reuse
 - **Preview playback** — listen to any assigned track before applying
+
+### Sprite
+- **Link Sprite replacement** — apply a custom `.zspr` or `.spr` Link sprite to your ROM
+- **Online Sprite Browser** — browse and download sprites directly from the ALttP community sprite library without leaving the app
+- **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times
+
+### General
+- **Output file renaming** — customize the base name used for all output files (e.g. `mypack.sfc`, `mypack.msu`, `mypack-2.pcm`)
 - **One-click pack assembly** — copies the ROM, generates the `.msu` marker file, and writes all numbered `.pcm` files
 - **Conflict detection** — warns before overwriting existing files with Overwrite / Skip / Cancel options
-- **Config save/load** — save your track assignments as a JSON file and reload them later
+- **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; sprite preview URL is preserved
+- **Post-apply save prompt** — after a successful Apply, the app offers to save your settings if you haven't already
 - **No admin rights required** — per-user install, no elevated permissions needed
 - **No .NET runtime required** — ships as a single self-contained EXE
 
@@ -39,18 +51,35 @@ Alternatively, grab just the standalone `LTTPEnhancementTools.exe` and run it fr
 ### 1. Select your ROM
 Click **Select ROM** in the toolbar and pick your ALttP Randomizer `.sfc` or `.smc` file.
 
-### 2. Assign audio to slots
-For each track slot you want to replace:
-- Click **Pick File** (or **Replace**) to open a file picker
-- Select any supported audio file (see [Supported Formats](#supported-audio-formats) below)
-- If you pick a non-PCM file, it is automatically converted to MSU-1 PCM and saved next to the source file
+### 2. (Optional) Set a Link Sprite
+In the sprite header at the top:
+- Click **Browse File...** to select a local `.zspr` or `.spr` sprite file
+- Click **Browse Sprites...** to pick from the online ALttP sprite community library — includes a live thumbnail preview
+- Click **✕** to clear the sprite (default Link will be used)
 
-The ▶ button previews the assigned track. Click it again (or pick a different slot) to stop.
+### 3. Assign music to slots
 
-### 3. Set output folder
+**From your Music Library (recommended):**
+
+On first launch the app creates a `MusicLibrary/` folder next to its executable. Drop your audio files there, then:
+1. Click the **Library** button on any track row
+2. The popup shows all songs in your library with ▶ play buttons
+3. Click ▶ to audition a song; click the song name to assign it to the slot
+4. Non-converted songs are converted and cached on first assign (the cache is reused on subsequent picks)
+
+Use **Change Location...** in the toolbar to move the Music Library folder.
+
+**Browsing manually:**
+- Click **Pick File** (or **Replace**) on any row to open a file picker
+- Select any supported audio file — the app will offer to copy it to your Music Library for future reuse
+- Non-PCM files are converted automatically
+
+The ▶ button on each row previews the assigned track. Click it again to stop.
+
+### 4. Set output folder
 Click **Browse…** next to the output folder path and choose where the finished pack should be written.
 
-### 4. Set output base name
+### 5. Set output base name
 The **Output Base Name** field controls the filename stem used for every file the app writes. It auto-fills from your ROM filename, but you can change it freely.
 
 For example, setting it to `mypack` produces:
@@ -62,16 +91,17 @@ mypack-9.pcm
 …
 ```
 
-### 5. Apply
+### 6. Apply
 Click **Apply to ROM**. The app will:
 1. Copy your ROM to the output folder (using the base name you set)
-2. Create the required empty `.msu` marker file
-3. Copy/write all assigned `.pcm` files with the correct numbered names
+2. Apply the selected Link sprite (if any)
+3. Create the required empty `.msu` marker file
+4. Copy/write all assigned `.pcm` files with the correct numbered names
 
-The log panel at the bottom shows progress and any errors.
+The log panel at the bottom shows progress and any errors. After a successful apply, you'll be prompted to save your settings if you haven't already.
 
-### 6. Save / Load config
-Use **Save Config** to write your current slot assignments to a `.json` file. Use **Load Config** to restore them later — handy when building multiple packs from the same base.
+### 7. Save / Load
+Use **Save** to write your current slot assignments and sprite to a `.json` file. Use **Load** to restore them later — handy when building multiple packs from the same base.
 
 ---
 
@@ -86,7 +116,7 @@ Use **Save Config** to write your current slot assignments to a `.json` file. Us
 | AAC / MPEG-4 Audio | `.aac`, `.m4a`, `.mp4` |
 | AIFF | `.aiff`, `.aif` |
 
-Converted files are saved as `.pcm` next to the original (e.g. `overworld.mp3` → `overworld.pcm`). Conversion uses Windows Media Foundation — no additional software required.
+When you pick a non-PCM file from the library, the converted `.pcm` is cached in `MusicLibrary/_cache/`. Subsequent picks of the same file reuse the cache instantly. Conversion uses Windows Media Foundation — no additional software required.
 
 > **Note:** FLAC and OGG/Vorbis are not currently supported. Convert them to MP3 or WAV first using a free tool like [Audacity](https://www.audacityteam.org/) or [fre:ac](https://www.freac.org/).
 
@@ -144,13 +174,18 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 LTTPEnhancementTools/
 ├── Models/
 │   ├── TrackSlot.cs          # Per-slot data + validation state
-│   └── AppConfig.cs          # JSON config schema
+│   ├── AppConfig.cs          # JSON config schema (tracks + sprite)
+│   └── LibraryEntry.cs       # Music Library song entry model
 ├── Services/
 │   ├── AudioPlayer.cs        # NAudio PCM playback
 │   ├── PcmConverter.cs       # Audio → MSU-1 PCM conversion
 │   ├── PcmValidator.cs       # MSU-1 header validation
 │   ├── ConfigManager.cs      # Save/load JSON config
-│   └── MsuApplyEngine.cs     # Pack assembly engine
+│   ├── MsuApplyEngine.cs     # Pack assembly engine
+│   ├── SpriteApplier.cs      # ZSPR/SPR sprite patching
+│   ├── MusicLibrary.cs       # Library folder scanner + cache manager
+│   ├── AppSettings.cs        # App-level settings schema
+│   └── SettingsManager.cs    # Persist settings to %LocalAppData%
 ├── Converters/
 │   └── ValueConverters.cs    # WPF value converters
 ├── Resources/
@@ -159,6 +194,7 @@ LTTPEnhancementTools/
 │   └── icon.ico              # App icon
 ├── App.xaml / App.xaml.cs
 ├── MainWindow.xaml / MainWindow.xaml.cs
+├── SpriteBrowserWindow.xaml / SpriteBrowserWindow.xaml.cs
 ├── LTTPEnhancementTools.csproj
 ├── setup.iss                 # Inno Setup installer script
 └── publish.bat               # One-command build + package script
