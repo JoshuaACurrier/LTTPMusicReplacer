@@ -13,7 +13,6 @@ using System.Windows.Data;
 using Microsoft.Win32;
 using Application = System.Windows.Application;
 using Button = System.Windows.Controls.Button;
-using Color = System.Windows.Media.Color;
 using MessageBox = System.Windows.MessageBox;
 using MessageBoxOptions = System.Windows.MessageBoxOptions;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
@@ -37,6 +36,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private string? _sniPath;
     private string? _trackerUrl;
     private string? _seedUrl;
+    private string? _currentPlaylistPath;
+    private string? _currentPlaylistName;
+    private bool _hasUnsavedPlaylistChanges;
+    private bool _isMusicExpanded;
+    private bool _isConfigExpanded;
+    private bool _isAutoLauncherExpanded;
 
     public string? EmulatorPath
     {
@@ -87,7 +92,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public string? SpritePath
     {
         get => _spritePath;
-        set { _spritePath = value; OnPropertyChanged(); OnPropertyChanged(nameof(HasSprite)); OnPropertyChanged(nameof(SpriteDisplayName)); OnPropertyChanged(nameof(CanApply)); }
+        set
+        {
+            _spritePath = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasSprite));
+            OnPropertyChanged(nameof(SpriteDisplayName));
+            OnPropertyChanged(nameof(CanApply));
+            SaveAutoState();
+        }
     }
 
     public string? SpritePreviewUrl
@@ -127,6 +140,30 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ? "Music Library"
         : $"Slot {_libraryTargetSlot.SlotNumber} — {_libraryTargetSlot.Name}";
 
+    public string CurrentPlaylistDisplayName =>
+        _currentPlaylistName is not null
+            ? (_hasUnsavedPlaylistChanges ? $"{_currentPlaylistName} *" : _currentPlaylistName)
+            : "(unsaved)";
+
+    public bool IsMusicExpanded
+    {
+        get => _isMusicExpanded;
+        set { _isMusicExpanded = value; OnPropertyChanged(); OnPropertyChanged(nameof(MusicExpandIcon)); }
+    }
+    public bool IsConfigExpanded
+    {
+        get => _isConfigExpanded;
+        set { _isConfigExpanded = value; OnPropertyChanged(); OnPropertyChanged(nameof(ConfigExpandIcon)); }
+    }
+    public bool IsAutoLauncherExpanded
+    {
+        get => _isAutoLauncherExpanded;
+        set { _isAutoLauncherExpanded = value; OnPropertyChanged(); OnPropertyChanged(nameof(AutoLauncherExpandIcon)); }
+    }
+    public string MusicExpandIcon        => _isMusicExpanded        ? "▼" : "▶";
+    public string ConfigExpandIcon       => _isConfigExpanded       ? "▼" : "▶";
+    public string AutoLauncherExpandIcon => _isAutoLauncherExpanded ? "▼" : "▶";
+
     // ── Library ───────────────────────────────────────────────────────────
     private readonly MusicLibrary _library = new();
     private TrackSlot? _libraryTargetSlot;
@@ -142,10 +179,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Path.GetDirectoryName(Environment.ProcessPath!)!,
             "Output");
 
-    private static string ConfigsFolder =>
-        Path.Combine(
-            Path.GetDirectoryName(Environment.ProcessPath!)!,
-            "Configs");
+    private string PlaylistsFolder =>
+        _library.LibraryFolder is not null
+            ? Path.Combine(_library.LibraryFolder, "Playlists")
+            : Path.Combine(Path.GetDirectoryName(Environment.ProcessPath!)!, "Playlists");
 
     public string? LibraryFolder => _library.LibraryFolder;
     public string LibrarySongCount => _library.Entries.Count == 0
@@ -184,15 +221,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             : settings.LibraryFolder;
         Directory.CreateDirectory(libraryPath);
         _library.SetFolder(libraryPath);
+        Directory.CreateDirectory(Path.Combine(libraryPath, "Playlists"));
 
         string outputPath = string.IsNullOrEmpty(settings.OutputFolder)
             ? DefaultOutputFolder
             : settings.OutputFolder;
         Directory.CreateDirectory(outputPath);
         OutputDir = outputPath;
-
-        // Ensure Configs folder exists next to the exe
-        Directory.CreateDirectory(ConfigsFolder);
 
         // Load launch settings (null = file doesn't exist yet; wizard shown in Window_Loaded)
         var launchSettings = LaunchSettingsManager.TryLoad();
@@ -209,6 +244,43 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (string.IsNullOrEmpty(settings.LibraryFolder) || string.IsNullOrEmpty(settings.OutputFolder))
             SaveAppSettings();
 
+        // Auto-restore last sprite and last playlist (use backing fields directly to avoid
+        // triggering SaveAutoState() or StopCurrentPlayback() before initialization is complete)
+        var autoState = AutoSaveManager.Load();
+
+        string? savedSprite = autoState.LastSpritePath.NullIfEmpty();
+        if (savedSprite is not null && File.Exists(savedSprite))
+        {
+            _spritePath = savedSprite;
+            _spritePreviewUrl = autoState.LastSpritePreviewUrl.NullIfEmpty();
+        }
+
+        string? savedPlaylist = autoState.LastPlaylistPath.NullIfEmpty();
+        if (savedPlaylist is not null && File.Exists(savedPlaylist))
+        {
+            var (playlist, _) = PlaylistManager.Load(savedPlaylist);
+            if (playlist is not null)
+            {
+                foreach (var (key, path) in playlist.Tracks)
+                {
+                    if (!int.TryParse(key, out int slot)) continue;
+                    var ts = Tracks.FirstOrDefault(t => t.SlotNumber == slot);
+                    if (ts is null) continue;
+                    ts.PcmPath = path;
+                    ts.ValidationError = PcmValidator.Validate(path);
+                }
+                _currentPlaylistPath = savedPlaylist;
+                _currentPlaylistName = playlist.Name;
+                _hasUnsavedPlaylistChanges = false;
+            }
+        }
+
+        OnPropertyChanged(nameof(HasSprite));
+        OnPropertyChanged(nameof(SpriteDisplayName));
+        OnPropertyChanged(nameof(SpritePreviewUrl));
+        OnPropertyChanged(nameof(CanApply));
+        OnPropertyChanged(nameof(AssignedCountText));
+        OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
         OnPropertyChanged(nameof(LibraryFolder));
         OnPropertyChanged(nameof(LibrarySongCount));
     }
@@ -263,7 +335,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 // User skipped — write empty file so wizard doesn't reappear
                 LaunchSettingsManager.Save(new LaunchSettings());
-                AppendLog("Setup skipped. Use '⚙ Run Setup Wizard…' in Launch Settings to configure later.");
+                AppendLog("Setup skipped. Use '⚙ Run Setup Wizard…' in Auto Launcher to configure later.");
             }
         }
         catch (Exception ex)
@@ -273,6 +345,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     private void SetupWizard_Click(object sender, RoutedEventArgs e) => RunSetupWizard();
+
+    // ── Section expanders ─────────────────────────────────────────────────
+    private void ToggleMusic_Click(object s, RoutedEventArgs e)        => IsMusicExpanded        = !IsMusicExpanded;
+    private void ToggleConfig_Click(object s, RoutedEventArgs e)       => IsConfigExpanded       = !IsConfigExpanded;
+    private void ToggleAutoLauncher_Click(object s, RoutedEventArgs e) => IsAutoLauncherExpanded = !IsAutoLauncherExpanded;
 
     // ── Track Catalog ─────────────────────────────────────────────────────
     private void LoadTrackCatalog()
@@ -396,6 +473,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             else
                 AppendLog($"Slot {slot.SlotNumber} assigned: {Path.GetFileName(path)}");
 
+            SetDirty();
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -442,6 +520,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 if (validationError is not null)
                     AppendLog($"[WARN] Slot {slot.SlotNumber}: converted file issue: {validationError}");
 
+                SetDirty();
                 OnPropertyChanged(nameof(AssignedCountText));
                 OnPropertyChanged(nameof(CanApply));
             }
@@ -474,6 +553,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 StopCurrentPlayback();
             slot.PcmPath = null;
             slot.ValidationError = null;
+            SetDirty();
             OnPropertyChanged(nameof(AssignedCountText));
             OnPropertyChanged(nameof(CanApply));
         }
@@ -509,130 +589,112 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    // ── Config Save / Load ────────────────────────────────────────────────
-    private void SaveConfig_Click(object sender, RoutedEventArgs e)
+    // ── Playlist Save / Load ──────────────────────────────────────────────
+    private void SavePlaylist_Click(object sender, RoutedEventArgs e) => SavePlaylistDialog();
+
+    private void LoadPlaylist_Click(object sender, RoutedEventArgs e)
     {
-        if (_romPath is null)
-        {
-            ShowConfigMessage("Select a ROM first.", isError: true);
-            return;
-        }
+        string initialDir = Directory.Exists(PlaylistsFolder) ? PlaylistsFolder
+            : Path.GetDirectoryName(Environment.ProcessPath!)!;
 
-        var dlg = new SaveFileDialog
-        {
-            Title = "Save Configuration",
-            Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*",
-            DefaultExt = ".json",
-            FileName = "msu-config",
-            InitialDirectory = ConfigsFolder
-        };
-
-        if (dlg.ShowDialog(this) != true) return;
-
-        var config = BuildConfig();
-        string? error = ConfigManager.Save(dlg.FileName, config);
-        if (error is null)
-        {
-            AppendLog($"Config saved: {dlg.FileName}");
-            ShowConfigMessage("Config saved.", isError: false);
-        }
-        else
-        {
-            AppendLog($"[ERROR] {error}");
-            ShowConfigMessage(error, isError: true);
-        }
-    }
-
-    private void LoadConfig_Click(object sender, RoutedEventArgs e)
-    {
         var dlg = new OpenFileDialog
         {
-            Title = "Load Configuration",
-            Filter = "JSON Config (*.json)|*.json|All Files (*.*)|*.*",
+            Title = "Load Playlist",
+            Filter = "JSON Playlist (*.json)|*.json|All Files (*.*)|*.*",
             CheckFileExists = true,
-            InitialDirectory = ConfigsFolder
+            InitialDirectory = initialDir
         };
 
         if (dlg.ShowDialog(this) != true) return;
 
-        var (config, error) = ConfigManager.Load(dlg.FileName);
+        var (playlist, error) = PlaylistManager.Load(dlg.FileName);
         if (error is not null)
         {
             AppendLog($"[ERROR] {error}");
-            ShowConfigMessage(error, isError: true);
             return;
         }
 
-        ApplyConfig(config!);
-        AppendLog($"Config loaded: {dlg.FileName} ({config!.Tracks.Count} track(s))");
-        ShowConfigMessage($"Config loaded. {config.Tracks.Count} track(s) restored.", isError: false);
+        ApplyPlaylist(playlist!, dlg.FileName);
+        SaveAutoState();
+        AppendLog($"Playlist loaded: {dlg.FileName} ({playlist!.Tracks.Count} track(s))");
     }
 
-    private AppConfig BuildConfig()
+    private bool SavePlaylistDialog()
     {
-        var tracks = Tracks
-            .Where(t => t.PcmPath is not null)
-            .ToDictionary(t => t.SlotNumber.ToString(), t => t.PcmPath!);
+        Directory.CreateDirectory(PlaylistsFolder);
 
-        return new AppConfig
+        var dlg = new SaveFileDialog
         {
-            RomPath = _romPath ?? string.Empty,
-            SpritePath = _spritePath ?? string.Empty,
-            SpritePreviewUrl = _spritePreviewUrl ?? string.Empty,
-            Tracks = tracks
+            Title = "Save Playlist",
+            Filter = "JSON Playlist (*.json)|*.json|All Files (*.*)|*.*",
+            DefaultExt = ".json",
+            FileName = _currentPlaylistName ?? "my-playlist",
+            InitialDirectory = PlaylistsFolder
         };
-    }
 
-    private void ApplyConfig(AppConfig config)
-    {
-        StopCurrentPlayback();
+        if (dlg.ShowDialog(this) != true) return false;
 
-        // Clear all tracks
-        foreach (var t in Tracks) { t.PcmPath = null; t.ValidationError = null; }
+        string playlistName = Path.GetFileNameWithoutExtension(dlg.FileName);
+        var playlist = BuildPlaylist(playlistName);
+        string? error = PlaylistManager.Save(dlg.FileName, playlist);
 
-        // Set ROM
-        _romPath = config.RomPath;
-        RomBaseName = string.IsNullOrEmpty(config.RomPath)
-            ? null
-            : Path.GetFileNameWithoutExtension(config.RomPath);
-        OutputBaseName = RomBaseName;
-
-        // Set sprite
-        SpritePath = string.IsNullOrEmpty(config.SpritePath) ? null : config.SpritePath;
-        SpritePreviewUrl = string.IsNullOrEmpty(config.SpritePreviewUrl) ? null : config.SpritePreviewUrl;
-
-        // Assign tracks
-        foreach (var (key, pcmPath) in config.Tracks)
+        if (error is not null)
         {
-            if (!int.TryParse(key, out int slot)) continue;
-            var trackSlot = Tracks.FirstOrDefault(t => t.SlotNumber == slot);
-            if (trackSlot is null) continue;
-
-            trackSlot.PcmPath = pcmPath;
-            trackSlot.ValidationError = PcmValidator.Validate(pcmPath);
+            AppendLog($"[ERROR] {error}");
+            return false;
         }
 
+        _currentPlaylistPath = dlg.FileName;
+        _currentPlaylistName = playlistName;
+        _hasUnsavedPlaylistChanges = false;
+        OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
+        SaveAutoState();
+        AppendLog($"Playlist saved: {dlg.FileName}");
+        return true;
+    }
+
+    private Playlist BuildPlaylist(string name) => new Playlist
+    {
+        Name   = name,
+        Tracks = Tracks.Where(t => t.PcmPath is not null)
+                       .ToDictionary(t => t.SlotNumber.ToString(), t => t.PcmPath!)
+    };
+
+    private void ApplyPlaylist(Playlist playlist, string? sourceFilePath)
+    {
+        StopCurrentPlayback();
+        foreach (var t in Tracks) { t.PcmPath = null; t.ValidationError = null; }
+        foreach (var (key, path) in playlist.Tracks)
+        {
+            if (!int.TryParse(key, out int slot)) continue;
+            var ts = Tracks.FirstOrDefault(t => t.SlotNumber == slot);
+            if (ts is null) continue;
+            ts.PcmPath = path;
+            ts.ValidationError = PcmValidator.Validate(path);
+        }
+        _currentPlaylistPath = sourceFilePath;
+        _currentPlaylistName = playlist.Name;
+        _hasUnsavedPlaylistChanges = false;
+        OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
         OnPropertyChanged(nameof(AssignedCountText));
         OnPropertyChanged(nameof(CanApply));
-        OnPropertyChanged(nameof(HasRom));
     }
 
-    private void ShowConfigMessage(string text, bool isError)
+    // ── Dirty tracking ────────────────────────────────────────────────────
+    private void SetDirty()
     {
-        ConfigMessage.Text = text;
-        ConfigMessage.Foreground = isError
-            ? new SolidColorBrush(Color.FromRgb(0xE0, 0x5C, 0x6A))
-            : new SolidColorBrush(Color.FromRgb(0x4C, 0xAF, 0x6E));
-        ConfigMessage.Visibility = Visibility.Visible;
-
-        // Auto-hide after 4 seconds
-        var timer = new System.Windows.Threading.DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(4)
-        };
-        timer.Tick += (_, _) => { ConfigMessage.Visibility = Visibility.Collapsed; timer.Stop(); };
-        timer.Start();
+        _hasUnsavedPlaylistChanges = true;
+        OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
     }
+
+    // ── Auto-save ─────────────────────────────────────────────────────────
+    private void SaveAutoState() =>
+        AutoSaveManager.Save(new AutoSaveState
+        {
+            LastSpritePath       = _spritePath        ?? string.Empty,
+            LastSpritePreviewUrl = _spritePreviewUrl   ?? string.Empty,
+            LastPlaylistPath     = _currentPlaylistPath ?? string.Empty,
+        });
 
     // ── Output Dir Browse ─────────────────────────────────────────────────
     private void BrowseOutputDir_Click(object sender, RoutedEventArgs e)
@@ -680,9 +742,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     // ── Apply ─────────────────────────────────────────────────────────────
-    private async void Apply_Click(object sender, RoutedEventArgs e)
+    private async Task<bool> ApplyCoreAsync()
     {
-        if (_romPath is null || _outputDir is null) return;
+        if (_romPath is null || _outputDir is null) return false;
+
+        // Prompt to save playlist if tracks are assigned but no playlist has been saved yet
+        if (Tracks.Any(t => t.HasFile) && _hasUnsavedPlaylistChanges && _currentPlaylistPath is null)
+        {
+            var answer = MessageBox.Show(
+                "Save your track assignments as a playlist before applying?",
+                "Save Playlist?",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Yes)
+                SavePlaylistDialog(); // user can cancel the dialog; apply proceeds regardless
+        }
 
         StopCurrentPlayback();
 
@@ -699,10 +773,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Overwrite, OutputBaseName?.Trim(), _spritePath);
 
-        int lastTotal = 1;
         var progress = new Progress<(string step, int current, int total)>(p =>
         {
-            lastTotal = p.total;
             ApplyProgress.Value = p.total > 0 ? (double)p.current / p.total * 100 : 0;
             ProgressStepText.Text = p.step;
         });
@@ -725,29 +797,42 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AppendLog($"Apply succeeded. {result.FilesWritten.Count} file(s) written to: {_outputDir}");
             foreach (var f in result.FilesWritten)
                 AppendLog($"  + {Path.GetFileName(f)}");
+
+            return true;
         }
         catch (OperationCanceledException)
         {
             ProgressSection.Visibility = Visibility.Collapsed;
             AppendLog("Apply cancelled.");
+            return false;
         }
         catch (FileNotFoundException fnf)
         {
             ProgressSection.Visibility = Visibility.Collapsed;
             AppendLog($"[ERROR] {fnf.Message}");
             MessageBox.Show(fnf.Message, "Apply Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
         catch (Exception ex)
         {
             ProgressSection.Visibility = Visibility.Collapsed;
             AppendLog($"[ERROR] Apply failed: {ex.Message}");
             MessageBox.Show(ex.Message, "Apply Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return false;
         }
         finally
         {
             _isApplying = false;
             OnPropertyChanged(nameof(CanApply));
         }
+    }
+
+    private async void Apply_Click(object sender, RoutedEventArgs e) => await ApplyCoreAsync();
+
+    private async void ApplyAndLaunch_Click(object sender, RoutedEventArgs e)
+    {
+        bool ok = await ApplyCoreAsync();
+        if (ok) await LaunchRomCoreAsync();
     }
 
     // ── Conflict Modal ────────────────────────────────────────────────────
@@ -787,6 +872,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         Directory.CreateDirectory(dlg.FolderName);
         _library.SetFolder(dlg.FolderName);
+        Directory.CreateDirectory(Path.Combine(dlg.FolderName, "Playlists"));
         SaveAppSettings();
         OnPropertyChanged(nameof(LibraryFolder));
         OnPropertyChanged(nameof(LibrarySongCount));
@@ -884,6 +970,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AppendLog(err is null
                 ? $"Slot {slot.SlotNumber} assigned from library: {entry.Name}"
                 : $"[WARN] Slot {slot.SlotNumber}: {err}");
+
+            SetDirty();
         }
         else
         {
@@ -913,6 +1001,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 _library.Refresh();
                 OnPropertyChanged(nameof(LibrarySongCount));
                 AppendLog($"[Slot {slot.SlotNumber}] Cached + assigned: {entry.Name}");
+                SetDirty();
             }
             finally
             {
@@ -1017,6 +1106,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         StopCurrentPlayback();
         foreach (var t in Tracks) { t.PcmPath = null; t.ValidationError = null; }
+        SetDirty();
         OnPropertyChanged(nameof(AssignedCountText));
         OnPropertyChanged(nameof(CanApply));
         AppendLog("All track assignments cleared.");
@@ -1070,7 +1160,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     }
 
     // ── Launch ────────────────────────────────────────────────────────────
-    private async void LaunchRom_Click(object sender, RoutedEventArgs e)
+    private async Task LaunchRomCoreAsync()
     {
         if (_lastOutputRomPath is null || !File.Exists(_lastOutputRomPath)) return;
 
@@ -1104,12 +1194,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     args.Append($"--lua=\"{_connectorScriptPath}\" ");
                 args.Append($"\"{_lastOutputRomPath}\"");
 
-                string argStr = args.ToString();
-
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = _emulatorPath,
-                    Arguments = argStr,
+                    Arguments = args.ToString(),
                     WorkingDirectory = Path.GetDirectoryName(_emulatorPath)!,
                     UseShellExecute = false
                 });
@@ -1127,6 +1215,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             AppendLog($"[ERROR] Launch failed: {ex.Message}");
         }
     }
+
+    private async void LaunchRom_Click(object sender, RoutedEventArgs e) => await LaunchRomCoreAsync();
 
     // ── Log ───────────────────────────────────────────────────────────────
     private void AppendLog(string line)

@@ -2,22 +2,16 @@ using System.Text.Json.Serialization;
 
 namespace LTTPEnhancementTools.Models;
 
-public class AppConfig
+public class Playlist
 {
     [JsonPropertyName("version")]
     public int Version { get; set; } = 1;
 
-    [JsonPropertyName("romPath")]
-    public string RomPath { get; set; } = string.Empty;
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 
     [JsonPropertyName("tracks")]
     public Dictionary<string, string> Tracks { get; set; } = new();
-
-    [JsonPropertyName("spritePath")]
-    public string SpritePath { get; set; } = string.Empty;
-
-    [JsonPropertyName("spritePreviewUrl")]
-    public string SpritePreviewUrl { get; set; } = string.Empty;
 
     [JsonPropertyName("lastModified")]
     public string LastModified { get; set; } = string.Empty;
