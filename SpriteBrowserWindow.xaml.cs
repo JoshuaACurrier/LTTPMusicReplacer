@@ -269,4 +269,10 @@ public partial class SpriteBrowserWindow : Window
         DialogResult = false;
         Close();
     }
+
+    protected override void OnClosed(EventArgs e)
+    {
+        base.OnClosed(e);
+        _view = null;
+    }
 }

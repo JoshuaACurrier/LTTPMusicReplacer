@@ -47,6 +47,7 @@ public partial class SpriteImageControl : UserControl
     private async void LoadImage(string? url)
     {
         _cts?.Cancel();
+        _cts?.Dispose();
         var cts = new CancellationTokenSource();
         _cts = cts;
 

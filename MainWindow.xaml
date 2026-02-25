@@ -260,6 +260,8 @@
                                 <ColumnDefinition Width="*"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0"
                                     Content="{Binding MusicExpandIcon}"
@@ -293,6 +295,21 @@
                                     Style="{StaticResource DarkButton}"
                                     Padding="8,4"
                                     Click="SavePlaylist_Click"/>
+                            <Button Grid.Column="6"
+                                    Content="Export Pack…"
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="8,4"
+                                    Margin="6,0,0,0"
+                                    IsEnabled="{Binding CanExportPack}"
+                                    Click="ExportPack_Click"
+                                    ToolTip="Bundle assigned PCM files into a shareable .lttppack archive"/>
+                            <Button Grid.Column="7"
+                                    Content="Import Pack…"
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="8,4"
+                                    Margin="4,0,0,0"
+                                    Click="ImportPack_Click"
+                                    ToolTip="Extract and load a .lttppack archive"/>
                         </Grid>
 
                         <!-- Expandable: Track list -->

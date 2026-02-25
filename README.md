@@ -2,6 +2,8 @@
 
 A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. Manage MSU-1 music packs, replace the Link sprite, and launch everything — emulator, SNI, and community tracker — in one click.
 
+> **Bring Your Own ROM.** This tool requires you to provide your own legally-obtained ALttP ROM. It does not include, distribute, or circumvent any copyrighted game data. See [Legal & Copyright](#legal--copyright) below.
+
 ---
 
 ## Features
@@ -14,13 +16,15 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 - **Copy-to-Library prompt** — when browsing for a file manually, the app offers to copy it to your Music Library for future reuse
 - **Preview playback** — listen to any assigned track before applying
 - **Track search** — filter the 61-slot track list by name to find slots quickly; **Clear All** removes all assignments at once
+- **Playlists** — save and load your full set of track assignments as `.json` playlist files; auto-saved between sessions
+- **Pack Export / Import** — bundle your assigned PCM tracks into a shareable `.lttppack` file and share it with others; import a pack to instantly load all its tracks
 
 ### Sprite
 - **Link Sprite replacement** — apply a custom `.zspr` or `.spr` Link sprite to your ROM
 - **Online Sprite Browser** — browse 600+ community sprites in a card grid with live preview thumbnails; animated triforce loading indicator while images load
 - **Favorites** — star any sprite to pin it to the top of the list; favorites persist across sessions
 - **Offline support** — sprite list and all preview images are cached to disk after first load; the browser works offline using the local cache; **↻ Refresh** button re-fetches from the server when you want updates
-- **Default Link preview** — Link's sprite is shown automatically when no custom sprite is selected; downloading it once and caching for subsequent launches
+- **Default Link preview** — Link's sprite is shown automatically when no custom sprite is selected; downloaded once and cached for subsequent launches
 - **Reset to default** — selecting "Link" in the browser clears any custom sprite and restores the default
 - **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times
 
@@ -37,7 +41,7 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 - **Dedicated output folder** — a persistent `Output/` folder next to the app holds all generated packs; change it any time via Browse; 🗑 button clears the folder when you're done
 - **One-click pack assembly** — copies the ROM, generates the `.msu` marker file, and writes all numbered `.pcm` files
 - **Sprite-only apply** — apply just a Link sprite to a ROM with no music changes required
-- **Save / Load config** — save your track assignments and sprite as a JSON file and reload them later; files default to a `Configs/` folder next to the app for easy organization
+- **Auto-save session** — your last ROM, sprite, and playlist are remembered and restored on next launch
 - **No admin rights required** — per-user install, no elevated permissions needed
 - **No .NET runtime required** — ships as a single self-contained EXE
 
@@ -49,6 +53,8 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 - 64-bit (x64) processor
 - ~80 MB disk space for the installed app
 
+> ⚠️ **You must provide your own legally-obtained ALttP ROM** (`.sfc` or `.smc`). This tool does not include any ROM files or copyrighted game assets.
+
 ---
 
 ## Installation
@@ -56,6 +62,8 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 Download the latest installer (`LTTPEnhancementToolsSetup-*-win64.exe`) from the [Releases](../../releases/latest) page and run it. No administrator password needed — it installs to your personal `AppData\Local\Programs` folder.
 
 Alternatively, grab just the standalone `LTTPEnhancementTools.exe` and run it from anywhere.
+
+> **Windows SmartScreen:** On first launch Windows may show a "Windows protected your PC" warning because the app is not yet code-signed. Click **More info → Run anyway**. This is normal for independent open-source tools. See the [FAQ](HELP.md#faq) for more details.
 
 ---
 
@@ -96,12 +104,23 @@ Use **Change Location...** in the toolbar to move the Music Library folder.
 - Click **Pick File** (or **Replace**) on any row to open a file picker
 - Non-PCM files are converted to MSU-1 PCM automatically
 
-### 5. Set output folder and name
+### 5. Save / Load Playlists
+
+Your track assignments can be saved as a **playlist** (`.json`) for later reuse:
+- Click **Save Playlist** to save your current assignments to a `.json` file (stored in `MusicLibrary/Playlists/`)
+- Click **Load Playlist** to restore a saved set of assignments
+
+**Sharing music packs with others:**
+- Click **Export Pack…** to bundle all your assigned PCM files into a single `.lttppack` archive
+- Share the `.lttppack` file with anyone — they can click **Import Pack…** to extract the PCMs and load the playlist in one step
+- Missing files are skipped on export with a warning; re-importing the same pack is safe (existing files are not overwritten)
+
+### 6. Set output folder and name
 The app automatically creates an `Output/` folder next to its executable. Click **Browse…** to choose a different folder. The 🗑 button clears it when you're done.
 
 The **Output Base Name** field controls the filename stem (auto-fills from your ROM filename).
 
-### 6. Apply
+### 7. Apply
 Click **Apply to ROM**. The app will:
 1. Copy your ROM to the output folder
 2. Apply the selected Link sprite (if any)
@@ -110,7 +129,7 @@ Click **Apply to ROM**. The app will:
 
 You can apply with just a sprite, just music, or both.
 
-### 7. Launch
+### 8. Launch
 After a successful apply, click **Launch ROM**. The app will:
 1. Start **SNI.exe** (if configured and not already running)
 2. Open your selected **community tracker** in the browser
@@ -118,8 +137,23 @@ After a successful apply, click **Launch ROM**. The app will:
 
 If no emulator is configured, the ROM opens in whatever app is associated with `.sfc` files on your system.
 
-### 8. Save / Load configs
-Use **Save** to write your current slot assignments and sprite to a `.json` config file — stored by default in the `Configs/` folder next to the app. Use **Load** to restore them later. Handy for swapping between music packs.
+---
+
+## Pack Export / Import (`.lttppack`)
+
+The `.lttppack` format lets you share a complete music setup with other players.
+
+| What's included | What's NOT included |
+|-----------------|---------------------|
+| All assigned PCM audio files | Your ROM file |
+| Track-to-slot mapping | Any sprite |
+| Playlist name | |
+
+**Exporting:** Click **Export Pack…** in the MUSIC header. Choose a destination. If any assigned file is missing from disk, it is skipped (you'll see a warning showing how many were omitted — the archive is still valid for the tracks that were present).
+
+**Importing:** Click **Import Pack…**. PCM files are extracted to `MusicLibrary/Imported/<pack name>/`. Your current assignments are replaced by the pack's assignments. The session is left as "unsaved" so you can rename/save it as your own playlist.
+
+**Re-importing** the same pack is safe — files that already exist in the destination are not overwritten.
 
 ---
 
@@ -168,7 +202,7 @@ Settings are stored in two separate files:
 
 Delete `launchSettings.json` to force the setup wizard to reappear on next launch.
 
-Please include the crash log when reporting an issue.
+Please include the crash log when reporting an issue. For common questions, see [HELP.md](HELP.md).
 
 ---
 
@@ -200,21 +234,24 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 LTTPEnhancementTools/
 ├── Models/
 │   ├── TrackSlot.cs              # Per-slot data + validation state
-│   ├── AppConfig.cs              # JSON config schema (tracks + sprite)
-│   └── LibraryEntry.cs           # Music Library song entry model
+│   ├── Playlist.cs               # Playlist model (name + slot→path map)
+│   ├── LibraryEntry.cs           # Music Library song entry model
+│   └── SpriteEntry.cs            # Sprite browser entry model
 ├── Services/
 │   ├── AudioPlayer.cs            # NAudio PCM playback
 │   ├── PcmConverter.cs           # Audio → MSU-1 PCM conversion
 │   ├── PcmValidator.cs           # MSU-1 header validation
-│   ├── ConfigManager.cs          # Save/load JSON config
 │   ├── MsuApplyEngine.cs         # Pack assembly engine
 │   ├── SpriteApplier.cs          # ZSPR/SPR sprite patching
 │   ├── MusicLibrary.cs           # Library folder scanner + cache manager
+│   ├── PlaylistManager.cs        # Save/load JSON playlists
+│   ├── PlaylistBundleManager.cs  # Export/import .lttppack archives
+│   ├── AutoSaveManager.cs        # Persist last session state
+│   ├── FavoritesManager.cs       # Persist sprite favorites
 │   ├── AppSettings.cs            # App-level settings (library/output paths)
 │   ├── SettingsManager.cs        # Persist AppSettings to %LocalAppData%
 │   ├── LaunchSettings.cs         # Launch settings (emulator, SNI, tracker)
-│   ├── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
-│   └── FavoritesManager.cs       # Persist sprite favorites to %LocalAppData%
+│   └── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
 ├── Converters/
 │   └── ValueConverters.cs        # WPF value converters
 ├── Resources/
@@ -238,6 +275,18 @@ LTTPEnhancementTools/
 
 ---
 
-## License
+## Legal & Copyright
 
-This project is provided as-is for personal use. ALttP and its assets are property of Nintendo. This tool does not include or distribute any copyrighted game assets.
+**ALttP and all its assets** (music, graphics, sprites, ROM) are the exclusive property of Nintendo Co., Ltd. This project has no affiliation with Nintendo.
+
+**This tool does not include, bundle, or distribute any copyrighted game content**, including but not limited to:
+- ROM files
+- Game music or audio data
+- Sprite or graphics data
+- Any other Nintendo-owned intellectual property
+
+**Users are solely responsible** for ensuring they legally own any ROM they modify with this tool, and for complying with all applicable laws regarding backup copies of software they own.
+
+The community sprite repository at [alttpr.com](https://alttpr.com) is maintained independently by the ALttP Randomizer community. Sprites displayed in the browser are the work of their respective creators.
+
+This software is provided as-is for personal, non-commercial use. The authors make no warranties and accept no liability for any damages arising from its use.

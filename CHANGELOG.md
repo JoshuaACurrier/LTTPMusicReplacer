@@ -4,6 +4,25 @@ All notable changes to ALttP Enhancement Tools are documented here.
 
 ---
 
+## [2.0.0] — 2026-02-24
+
+### Added
+- **Pack Export / Import (`.lttppack`)** — bundle all assigned PCM tracks into a shareable archive; recipients import it to extract the files and load the playlist in one step
+- **Path traversal protection** — ZIP import now validates extracted paths stay within the destination folder
+- **User FAQ / Help doc** — new `HELP.md` covering getting started, music, sprites, playlists, troubleshooting, and FAQ including SmartScreen guidance
+
+### Changed
+- **README** — added prominent "Bring Your Own ROM" notice, expanded legal disclaimer into a full Legal & Copyright section, documented Playlists and Pack Export/Import
+- **Removed Nintendo-owned image** from source tree (was not part of the app but was present in the repo)
+- **CleanOutputFolder** no longer blocks the UI thread during file deletion
+
+### Fixed
+- `CancellationTokenSource` in `SpriteImageControl` was cancelled but never disposed on rapid URL changes (minor memory leak)
+- Unused `using Button` type alias removed from `MainWindow.xaml.cs`
+- `ListCollectionView` reference released when `SpriteBrowserWindow` closes
+
+---
+
 ## [1.9.0] — 2026-02-24
 
 ### Added

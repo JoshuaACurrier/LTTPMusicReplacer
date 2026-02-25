@@ -12,7 +12,6 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using Microsoft.Win32;
 using Application = System.Windows.Application;
-using Button = System.Windows.Controls.Button;
 using MessageBox = System.Windows.MessageBox;
 using MessageBoxOptions = System.Windows.MessageBoxOptions;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
@@ -134,6 +133,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                          && !string.IsNullOrWhiteSpace(_outputBaseName)
                          && !_isApplying
                          && !_isConverting;
+
+    public bool CanExportPack => Tracks.Any(t => t.HasFile) && !_isApplying && !_isConverting;
 
     private string? _lastOutputRomPath;
     public bool CanLaunch => _lastOutputRomPath is not null && File.Exists(_lastOutputRomPath);
@@ -559,6 +560,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _isConverting = true;
             OnPropertyChanged(nameof(CanApply));
+            OnPropertyChanged(nameof(CanExportPack));
 
             try
             {
@@ -599,6 +601,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _isConverting = false;
                 OnPropertyChanged(nameof(CanApply));
+                OnPropertyChanged(nameof(CanExportPack));
             }
         }
     }
@@ -662,6 +665,90 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     // ── Playlist Save / Load ──────────────────────────────────────────────
     private void SavePlaylist_Click(object sender, RoutedEventArgs e) => SavePlaylistDialog();
+
+    private async void ExportPack_Click(object sender, RoutedEventArgs e)
+    {
+        var playlist = BuildPlaylist(_currentPlaylistName ?? "my-pack");
+
+        string initialDir = Directory.Exists(PlaylistsFolder) ? PlaylistsFolder
+            : Path.GetDirectoryName(Environment.ProcessPath!)!;
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export LTTP Pack",
+            Filter = "LTTP Pack (*.lttppack)|*.lttppack|All Files (*.*)|*.*",
+            DefaultExt = ".lttppack",
+            FileName = playlist.Name,
+            InitialDirectory = initialDir
+        };
+
+        if (dlg.ShowDialog(this) != true) return;
+
+        var (result, error) = await Task.Run(() => PlaylistBundleManager.Export(dlg.FileName, playlist));
+
+        if (error is not null)
+        {
+            AppendLog($"[ERROR] Export failed: {error}");
+            MessageBox.Show(error, "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        if (result!.TracksSkipped > 0)
+        {
+            string msg = $"{result.TracksSkipped} track file(s) were missing and could not be bundled.\n" +
+                         $"{result.TracksWritten} track(s) were exported successfully.";
+            AppendLog($"[WARN] Export partial: {msg}");
+            MessageBox.Show(msg, "Export Complete (with warnings)", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        else
+        {
+            AppendLog($"Pack exported: {result.TracksWritten} track(s) → {dlg.FileName}");
+        }
+    }
+
+    private async void ImportPack_Click(object sender, RoutedEventArgs e)
+    {
+        if (_library.LibraryFolder is null)
+        {
+            MessageBox.Show(
+                "Please configure a music library folder before importing a pack.",
+                "No Library Configured",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        string initialDir = Directory.Exists(PlaylistsFolder) ? PlaylistsFolder
+            : Path.GetDirectoryName(Environment.ProcessPath!)!;
+
+        var dlg = new OpenFileDialog
+        {
+            Title = "Import LTTP Pack",
+            Filter = "LTTP Pack (*.lttppack)|*.lttppack|All Files (*.*)|*.*",
+            CheckFileExists = true,
+            InitialDirectory = initialDir
+        };
+
+        if (dlg.ShowDialog(this) != true) return;
+
+        var (playlist, error) = await Task.Run(
+            () => PlaylistBundleManager.Import(dlg.FileName, _library.LibraryFolder));
+
+        if (error is not null)
+        {
+            AppendLog($"[ERROR] Import failed: {error}");
+            MessageBox.Show(error, "Import Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        // Pass null as sourceFilePath — leaves the session as "unsaved" so the .lttppack
+        // path is never written to auto-save (PlaylistManager.Load would fail on it later).
+        ApplyPlaylist(playlist!, null);
+        _library.Refresh();
+        OnPropertyChanged(nameof(LibrarySongCount));
+        SaveAutoState();
+        AppendLog($"Pack imported: '{playlist!.Name}' — {playlist.Tracks.Count} track(s) loaded.");
+    }
 
     private void LoadPlaylist_Click(object sender, RoutedEventArgs e)
     {
@@ -749,6 +836,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
         OnPropertyChanged(nameof(AssignedCountText));
         OnPropertyChanged(nameof(CanApply));
+        OnPropertyChanged(nameof(CanExportPack));
     }
 
     // ── Dirty tracking ────────────────────────────────────────────────────
@@ -756,6 +844,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         _hasUnsavedPlaylistChanges = true;
         OnPropertyChanged(nameof(CurrentPlaylistDisplayName));
+        OnPropertyChanged(nameof(CanExportPack));
     }
 
     // ── Auto-save ─────────────────────────────────────────────────────────
@@ -784,7 +873,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void CleanOutputFolder_Click(object sender, RoutedEventArgs e)
+    private async void CleanOutputFolder_Click(object sender, RoutedEventArgs e)
     {
         if (OutputDir is null || !Directory.Exists(OutputDir)) return;
 
@@ -803,12 +892,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (result != MessageBoxResult.Yes) return;
 
-        int deleted = 0;
-        foreach (var f in files)
+        int deleted = await Task.Run(() =>
         {
-            try { File.Delete(f); deleted++; }
-            catch { /* skip locked files */ }
-        }
+            int count = 0;
+            foreach (var f in files)
+            {
+                try { File.Delete(f); count++; }
+                catch { /* skip locked files */ }
+            }
+            return count;
+        });
         AppendLog($"Cleared {deleted} file(s) from output folder.");
     }
 
@@ -833,6 +926,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _isApplying = true;
         OnPropertyChanged(nameof(CanApply));
+        OnPropertyChanged(nameof(CanExportPack));
         ApplySuccessText.Visibility = Visibility.Collapsed;
         ProgressSection.Visibility = Visibility.Visible;
         ApplyProgress.Value = 0;
@@ -895,6 +989,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _isApplying = false;
             OnPropertyChanged(nameof(CanApply));
+            OnPropertyChanged(nameof(CanExportPack));
         }
     }
 
@@ -1056,6 +1151,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _isConverting = true;
             OnPropertyChanged(nameof(CanApply));
+            OnPropertyChanged(nameof(CanExportPack));
             try
             {
                 string? err = await PcmConverter.ConvertAsync(entry.SourcePath, destPath);
@@ -1078,6 +1174,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _isConverting = false;
                 OnPropertyChanged(nameof(CanApply));
+                OnPropertyChanged(nameof(CanExportPack));
             }
         }
 
