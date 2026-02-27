@@ -24,11 +24,12 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 ### Sprite
 - **Link Sprite replacement** — apply a custom `.zspr` or `.spr` Link sprite to your ROM
 - **Online Sprite Browser** — browse 600+ community sprites in a card grid with live preview thumbnails; animated triforce loading indicator while images load
+- **Random Sprite** — choose **Random All** (**?**) or **Random Favorites** (**?★**) from the top of the browser; a sprite is picked for you at apply time as a fun surprise — you won't know which one until you open the game
 - **Favorites** — star any sprite to pin it to the top of the list; favorites persist across sessions
 - **Offline support** — sprite list and all preview images are cached to disk after first load; the browser works offline using the local cache; **↻ Refresh** button re-fetches from the server when you want updates
 - **Default Link preview** — Link's sprite is shown automatically when no custom sprite is selected; downloaded once and cached for subsequent launches
 - **Reset to default** — selecting "Link" in the browser clears any custom sprite and restores the default
-- **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times
+- **Sprite preview** — the selected sprite thumbnail is shown at the top of the window at all times; random selection shows a gold **?** or **?★** placeholder
 
 ### Archipelago / One-Click Launch
 - **Setup Wizard** — on first run a 4-step wizard walks you through configuring your emulator, Archipelago connector script, SNI, and community tracker
@@ -90,6 +91,8 @@ In the sprite header at the top:
 - Click **✕** to clear the sprite (default Link will be used)
 
 The sprite browser caches the full sprite list and all preview images to disk after the first load, so it opens instantly and works offline on subsequent uses. Use the **↻ Refresh** button to check for new sprites.
+
+**Random sprite:** the top two cards in the browser are **Random All** (**?**) and **Random Favorites** (**?★**). Selecting either saves your preference — the actual sprite is chosen at apply time as a surprise. Random Favorites picks from whichever sprites you've starred.
 
 ### 4. Assign music to slots
 

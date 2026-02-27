@@ -66,18 +66,110 @@
             </DockPanel>
         </Border>
 
-        <!-- Card grid -->
-        <Grid>
-            <!-- Loading / error overlay -->
-            <TextBlock x:Name="LoadingText"
-                       Text="Loading sprites…"
-                       HorizontalAlignment="Center"
-                       VerticalAlignment="Center"
-                       FontStyle="Italic"
-                       Foreground="{StaticResource TextMutedBrush}"/>
+        <!-- Card area: random cards on top, then the sprite grid -->
+        <DockPanel>
 
-            <!-- Sprite cards -->
-            <ListBox x:Name="SpriteList"
+            <!-- Random cards row (hidden until list loads) -->
+            <WrapPanel x:Name="RandomCardsPanel"
+                       DockPanel.Dock="Top"
+                       Orientation="Horizontal"
+                       Margin="0,0,0,4"
+                       Visibility="Collapsed">
+
+                <!-- Random All card -->
+                <Button Margin="4" Width="128" Cursor="Hand"
+                        Click="RandomAll_Click" ToolTip="Pick a completely random sprite at apply time">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="CardBorder"
+                                    Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="6"
+                                    Padding="8,8,8,10" Cursor="Hand">
+                                <Grid Width="112">
+                                    <StackPanel>
+                                        <Border Width="64" Height="64" CornerRadius="4"
+                                                Background="#2A2A3A" Margin="24,0,24,7">
+                                            <TextBlock Text="?" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       FontSize="36" FontWeight="Bold" Foreground="#DAA520"/>
+                                        </Border>
+                                        <TextBlock Text="Random All"
+                                                   FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextBrush}"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                   HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Surprise!"
+                                                   FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                                   Margin="0,1,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="CardBorder" Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="CardBorder" Property="Background" Value="#18183A"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <!-- Random Favorites card -->
+                <Button Margin="4" Width="128" Cursor="Hand"
+                        Click="RandomFavorites_Click" ToolTip="Pick a random sprite from your favorites at apply time">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="CardBorder"
+                                    Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1" CornerRadius="6"
+                                    Padding="8,8,8,10" Cursor="Hand">
+                                <Grid Width="112">
+                                    <StackPanel>
+                                        <Border Width="64" Height="64" CornerRadius="4"
+                                                Background="#2A2A3A" Margin="24,0,24,7">
+                                            <TextBlock Text="?★" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                       FontSize="26" FontWeight="Bold" Foreground="#DAA520"/>
+                                        </Border>
+                                        <TextBlock Text="Random Fav"
+                                                   FontSize="11" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource TextBrush}"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"
+                                                   HorizontalAlignment="Left"/>
+                                        <TextBlock Text="Surprise!"
+                                                   FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                                   Margin="0,1,0,0"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="CardBorder" Property="Background" Value="{StaticResource SurfaceAltBrush}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="CardBorder" Property="Background" Value="#18183A"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+            </WrapPanel>
+
+            <!-- Sprite grid with loading overlay -->
+            <Grid>
+                <!-- Loading / error overlay -->
+                <TextBlock x:Name="LoadingText"
+                           Text="Loading sprites…"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontStyle="Italic"
+                           Foreground="{StaticResource TextMutedBrush}"/>
+
+                <!-- Sprite cards -->
+                <ListBox x:Name="SpriteList"
                      Background="Transparent"
                      BorderThickness="0"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -201,6 +293,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-        </Grid>
+            </Grid>
+        </DockPanel>
     </DockPanel>
 </Window>

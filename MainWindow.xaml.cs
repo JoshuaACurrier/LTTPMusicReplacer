@@ -98,6 +98,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged();
             OnPropertyChanged(nameof(HasSprite));
             OnPropertyChanged(nameof(SpriteDisplayName));
+            OnPropertyChanged(nameof(IsRandomSprite));
+            OnPropertyChanged(nameof(RandomGlyph));
             OnPropertyChanged(nameof(CanApply));
             SaveAutoState();
         }
@@ -121,9 +123,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     public bool HasSprite => _spritePath is not null;
 
-    public string? SpriteDisplayName => _spritePath is null
-        ? null
-        : Path.GetFileNameWithoutExtension(_spritePath);
+    public string? SpriteDisplayName => _spritePath switch
+    {
+        SpriteBrowserWindow.RandomAllSentinel       => "Random (any sprite)",
+        SpriteBrowserWindow.RandomFavoritesSentinel => "Random (from favorites)",
+        null                                        => null,
+        _                                           => Path.GetFileNameWithoutExtension(_spritePath)
+    };
+
+    public bool IsRandomSprite =>
+        _spritePath == SpriteBrowserWindow.RandomAllSentinel ||
+        _spritePath == SpriteBrowserWindow.RandomFavoritesSentinel;
+
+    public string RandomGlyph =>
+        _spritePath == SpriteBrowserWindow.RandomFavoritesSentinel ? "?★" : "?";
 
     public bool HasRom => _romPath is not null;
 
@@ -286,19 +299,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var autoState = AutoSaveManager.Load();
 
         string? savedSprite = autoState.LastSpritePath.NullIfEmpty();
-        if (savedSprite is not null && File.Exists(savedSprite))
+        bool isSentinel = savedSprite == SpriteBrowserWindow.RandomAllSentinel ||
+                          savedSprite == SpriteBrowserWindow.RandomFavoritesSentinel;
+        if (savedSprite is not null && (File.Exists(savedSprite) || isSentinel))
         {
             _spritePath = savedSprite;
-            var savedPreview = autoState.LastSpritePreviewUrl.NullIfEmpty();
-            if (savedPreview is not null && savedPreview.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            if (!isSentinel)
             {
-                // Stale web URL saved before caching completed (e.g. app crashed) — re-cache it.
-                // Use Dispatcher so the constructor finishes before the async work starts.
-                Dispatcher.InvokeAsync(() => _ = CacheSpritePreviewAsync(savedPreview));
-            }
-            else
-            {
-                _spritePreviewUrl = savedPreview;
+                var savedPreview = autoState.LastSpritePreviewUrl.NullIfEmpty();
+                if (savedPreview is not null && savedPreview.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Stale web URL saved before caching completed (e.g. app crashed) — re-cache it.
+                    // Use Dispatcher so the constructor finishes before the async work starts.
+                    Dispatcher.InvokeAsync(() => _ = CacheSpritePreviewAsync(savedPreview));
+                }
+                else
+                {
+                    _spritePreviewUrl = savedPreview;
+                }
             }
         }
 
@@ -324,6 +342,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         OnPropertyChanged(nameof(HasSprite));
         OnPropertyChanged(nameof(SpriteDisplayName));
+        OnPropertyChanged(nameof(IsRandomSprite));
+        OnPropertyChanged(nameof(RandomGlyph));
         OnPropertyChanged(nameof(SpritePreviewUrl));
         OnPropertyChanged(nameof(CanApply));
         OnPropertyChanged(nameof(AssignedCountText));
@@ -936,7 +956,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             .Where(t => t.HasFile)
             .ToDictionary(t => t.SlotNumber.ToString(), t => t.PcmPath!);
 
-        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Overwrite, OutputBaseName?.Trim(), _spritePath);
+        // Resolve random sentinel to a concrete sprite path before applying
+        string? resolvedSpritePath = _spritePath;
+        if (IsRandomSprite)
+        {
+            bool favsOnly = _spritePath == SpriteBrowserWindow.RandomFavoritesSentinel;
+            resolvedSpritePath = await PickRandomSpriteAsync(favsOnly);
+            if (resolvedSpritePath is null)
+            {
+                // PickRandomSpriteAsync already logged the error
+                _isApplying = false;
+                OnPropertyChanged(nameof(CanApply));
+                OnPropertyChanged(nameof(CanExportPack));
+                return false;
+            }
+        }
+
+        var req = new ApplyRequest(_romPath, _outputDir, tracks, OverwriteMode.Overwrite, OutputBaseName?.Trim(), resolvedSpritePath);
 
         var progress = new Progress<(string step, int current, int total)>(p =>
         {
@@ -1239,6 +1275,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         if (window.SelectedSpritePath is null) return;
 
+        // Random sentinels — store as-is, resolve to real sprite at apply time
+        if (window.SelectedSpritePath == SpriteBrowserWindow.RandomAllSentinel ||
+            window.SelectedSpritePath == SpriteBrowserWindow.RandomFavoritesSentinel)
+        {
+            SpritePath = window.SelectedSpritePath;
+            SpritePreviewUrl = null;
+            AppendLog($"Sprite: {SpriteDisplayName} (resolved at apply time)");
+            return;
+        }
+
         string? error = SpriteApplier.Validate(window.SelectedSpritePath);
         if (error is not null)
         {
@@ -1273,6 +1319,80 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SaveAutoState();
         }
         catch { /* best-effort — URL still shows in the current session */ }
+    }
+
+    // ── Random sprite resolution ──────────────────────────────────────────
+
+    private static readonly System.Net.Http.HttpClient _randomHttp =
+        new() { Timeout = TimeSpan.FromSeconds(30) };
+
+    private static readonly System.Text.Json.JsonSerializerOptions _randomJsonOpts =
+        new() { PropertyNameCaseInsensitive = true };
+
+    /// <summary>
+    /// Picks a random sprite from the cached list (or fetches from network),
+    /// downloads the ZSPR to the sprite cache if needed.
+    /// Returns the local ZSPR path on success, or null (after logging) on failure.
+    /// </summary>
+    private async Task<string?> PickRandomSpriteAsync(bool favoritesOnly)
+    {
+        try
+        {
+            List<Models.SpriteEntry>? sprites;
+            if (File.Exists(SpriteBrowserWindow.SpritesListCachePath))
+            {
+                var json = await File.ReadAllTextAsync(SpriteBrowserWindow.SpritesListCachePath);
+                sprites = System.Text.Json.JsonSerializer.Deserialize<List<Models.SpriteEntry>>(json, _randomJsonOpts);
+            }
+            else
+            {
+                AppendLog("Fetching sprite list for random selection…");
+                var json = await _randomHttp.GetStringAsync("https://alttpr.com/sprites");
+                sprites = System.Text.Json.JsonSerializer.Deserialize<List<Models.SpriteEntry>>(json, _randomJsonOpts);
+            }
+
+            if (sprites is null || sprites.Count == 0)
+            {
+                AppendLog("[ERROR] No sprites available for random selection.");
+                return null;
+            }
+
+            List<Models.SpriteEntry> pool = sprites;
+            if (favoritesOnly)
+            {
+                var favs = Services.FavoritesManager.Load();
+                pool = sprites.Where(s => favs.Contains(s.Name)).ToList();
+                if (pool.Count == 0)
+                {
+                    AppendLog("[ERROR] No favorites found. Add favorites in the sprite browser first.");
+                    return null;
+                }
+            }
+
+            var picked = pool[Random.Shared.Next(pool.Count)];
+
+            var cacheDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "LTTPEnhancementTools", "SpriteCache");
+            Directory.CreateDirectory(cacheDir);
+
+            var safeName = string.Concat(picked.Name.Split(Path.GetInvalidFileNameChars()));
+            var localPath = Path.Combine(cacheDir, safeName + ".zspr");
+
+            if (!File.Exists(localPath))
+            {
+                AppendLog($"Downloading random sprite: {picked.Name}…");
+                var data = await _randomHttp.GetByteArrayAsync(picked.File);
+                await File.WriteAllBytesAsync(localPath, data);
+            }
+
+            return localPath;
+        }
+        catch (Exception ex)
+        {
+            AppendLog($"[ERROR] Random sprite failed: {ex.Message}");
+            return null;
+        }
     }
 
     private void ClearSprite_Click(object sender, RoutedEventArgs e) => ClearSprite();

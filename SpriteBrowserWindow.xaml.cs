@@ -37,6 +37,12 @@ public partial class SpriteBrowserWindow : Window
     public const string DefaultLinkPreviewFallbackUrl =
         "https://alttpr-assets.s3.us-east-2.amazonaws.com/001.link.1.zspr.png";
 
+    /// <summary>Sentinel stored as SpritePath when "Random All" is chosen. Resolved to a real sprite at apply time.</summary>
+    public const string RandomAllSentinel = "__random_all__";
+
+    /// <summary>Sentinel stored as SpritePath when "Random Favorites" is chosen. Resolved to a real sprite at apply time.</summary>
+    public const string RandomFavoritesSentinel = "__random_favorites__";
+
     private static readonly JsonSerializerOptions JsonOptions =
         new() { PropertyNameCaseInsensitive = true };
 
@@ -98,6 +104,7 @@ public partial class SpriteBrowserWindow : Window
                     .FirstOrDefault(s => s.Name == DefaultSpriteName)?.Preview;
 
             LoadingText.Visibility = Visibility.Collapsed;
+            RandomCardsPanel.Visibility = Visibility.Visible;
             SpriteList.Visibility = Visibility.Visible;
             StatusText.Text = $"{_cachedSprites.Count} sprites";
         }
@@ -261,6 +268,21 @@ public partial class SpriteBrowserWindow : Window
             StatusText.Text = $"Download failed: {ex.Message}";
             SelectButton.IsEnabled = true;
         }
+    }
+
+    // ── Random selection ──────────────────────────────────────────────────
+    private void RandomAll_Click(object sender, RoutedEventArgs e)
+    {
+        SelectedSpritePath = RandomAllSentinel;
+        DialogResult = true;
+        Close();
+    }
+
+    private void RandomFavorites_Click(object sender, RoutedEventArgs e)
+    {
+        SelectedSpritePath = RandomFavoritesSentinel;
+        DialogResult = true;
+        Close();
     }
 
     // ── Cancel ────────────────────────────────────────────────────────────

@@ -165,12 +165,21 @@
                         <!-- Sprite image / placeholder -->
                         <Grid Grid.Column="0" Width="64" Height="64"
                               HorizontalAlignment="Center" VerticalAlignment="Center">
-                            <!-- Fallback: shown only when neither custom nor default preview is available -->
+                            <!-- Fallback: shown only when no preview and not random -->
                             <Border Background="#2A2A35"
                                     BorderBrush="{StaticResource BorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="4"
                                     Visibility="{Binding EffectivePreviewUrl, Converter={StaticResource NullToVisInv}}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRandomSprite}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
                                 <TextBlock Text="Default"
                                            FontSize="11"
                                            Foreground="{StaticResource TextFaintBrush}"
@@ -181,6 +190,22 @@
                                    Visibility="{Binding EffectivePreviewUrl, Converter={StaticResource NullToVis}}"
                                    RenderOptions.BitmapScalingMode="NearestNeighbor"
                                    Stretch="Uniform"/>
+                            <!-- Random placeholder: "?" or "?★" -->
+                            <Border Background="#2A2A3A" CornerRadius="4">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRandomSprite}" Value="True">
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <TextBlock Text="{Binding RandomGlyph}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           FontSize="26" FontWeight="Bold" Foreground="#DAA520"/>
+                            </Border>
                         </Grid>
 
                         <!-- Info and buttons -->
