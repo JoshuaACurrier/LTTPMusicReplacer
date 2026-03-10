@@ -217,6 +217,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     // ── Services ─────────────────────────────────────────────────────────
     private readonly AudioPlayer _audio = new();
     private TrackSlot? _playingSlot;
+    private TrackSlot? _playingOriginalSlot;
     private readonly ApplyEngine _applyEngine = new();
     private static readonly System.Net.Http.HttpClient Http = new();
 
@@ -251,6 +252,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DataContext = this;
 
         LoadTrackCatalog();
+        OriginalSoundtrackManager.LoadCachedOriginals(Tracks.ToList());
 
         _audio.PlaybackStopped += (_, _) => Dispatcher.Invoke(() =>
         {
@@ -258,6 +260,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 _playingSlot.IsPlaying = false;
                 _playingSlot = null;
+            }
+            if (_playingOriginalSlot is not null)
+            {
+                _playingOriginalSlot.IsPlayingOriginal = false;
+                _playingOriginalSlot = null;
             }
         });
 
@@ -457,7 +464,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             foreach (var e in entries.OrderBy(e => e.Slot))
             {
-                Tracks.Add(new TrackSlot { SlotNumber = e.Slot, Name = e.Name });
+                Tracks.Add(new TrackSlot { SlotNumber = e.Slot, Name = e.Name, TrackType = e.Type });
             }
         }
         catch (Exception ex)
@@ -466,7 +473,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private record CatalogEntry(int Slot, string Name);
+    private record CatalogEntry(int Slot, string Name, string Type = "music");
 
     // ── ROM Selection ─────────────────────────────────────────────────────
     private void SelectRom_Click(object sender, RoutedEventArgs e)
@@ -636,6 +643,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _playingSlot.IsPlaying = false;
             _playingSlot = null;
         }
+        StopOriginalPlayback();
+    }
+
+    private void StopOriginalPlayback()
+    {
+        if (_playingOriginalSlot is not null)
+        {
+            _audio.Stop();
+            _playingOriginalSlot.IsPlayingOriginal = false;
+            _playingOriginalSlot = null;
+        }
     }
 
     // ── Clear ─────────────────────────────────────────────────────────────
@@ -680,6 +698,233 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                     _playingSlot = slot;
                 }
             }
+        }
+    }
+
+    // ── Original Audio Preview ───────────────────────────────────────────
+    private void PlayOriginal_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn && btn.CommandParameter is TrackSlot slot)
+        {
+            if (slot.IsPlayingOriginal)
+            {
+                _audio.Stop();
+                slot.IsPlayingOriginal = false;
+                _playingOriginalSlot = null;
+            }
+            else if (slot.OriginalPcmPath is not null)
+            {
+                StopCurrentPlayback();
+
+                string? error = _audio.Play(slot.OriginalPcmPath);
+                if (error is not null)
+                {
+                    AppendLog($"[ERROR] Original playback failed for slot {slot.SlotNumber}: {error}");
+                    MessageBox.Show(error, "Playback Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+                else
+                {
+                    slot.IsPlayingOriginal = true;
+                    _playingOriginalSlot = slot;
+                }
+            }
+        }
+    }
+
+    // ── Import Original Soundtrack ───────────────────────────────────────
+    private void ImportOriginals_Click(object sender, RoutedEventArgs e)
+    {
+        // Show a context menu with import options
+        var menu = new System.Windows.Controls.ContextMenu();
+
+        var folderItem = new System.Windows.Controls.MenuItem { Header = "Import from Folder…" };
+        folderItem.Click += async (_, _) => await ImportOriginalsFromFolder();
+        menu.Items.Add(folderItem);
+
+        var zipItem = new System.Windows.Controls.MenuItem { Header = "Import from ZIP…" };
+        zipItem.Click += async (_, _) => await ImportOriginalsFromZip();
+        menu.Items.Add(zipItem);
+
+        var urlItem = new System.Windows.Controls.MenuItem { Header = "Import from URL…" };
+        urlItem.Click += async (_, _) => await ImportOriginalsFromUrl();
+        menu.Items.Add(urlItem);
+
+        menu.Items.Add(new System.Windows.Controls.Separator());
+
+        var exportItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "Export Originals as Pack…",
+            IsEnabled = Tracks.Any(t => t.HasOriginal)
+        };
+        exportItem.Click += async (_, _) => await ExportOriginalsAsPack();
+        menu.Items.Add(exportItem);
+
+        var clearItem = new System.Windows.Controls.MenuItem
+        {
+            Header = "Clear All Originals",
+            IsEnabled = Tracks.Any(t => t.HasOriginal)
+        };
+        clearItem.Click += (_, _) =>
+        {
+            OriginalSoundtrackManager.ClearCache(Tracks.ToList());
+            AppendLog("[INFO] Cleared all cached original soundtrack files.");
+        };
+        menu.Items.Add(clearItem);
+
+        if (sender is Button button)
+        {
+            menu.PlacementTarget = button;
+            menu.Placement = PlacementMode.Bottom;
+        }
+        menu.IsOpen = true;
+    }
+
+    private async Task ImportOriginalsFromFolder()
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Select folder containing original ALttP soundtrack MP3 files"
+        };
+
+        if (dlg.ShowDialog(this) != true) return;
+        string selectedPath = dlg.FolderName;
+
+        AppendLog("Importing original soundtrack from folder…");
+        var progress = new Progress<(int current, int total, string trackName)>(p =>
+            AppendLog($"  Converting {p.current}/{p.total}: {p.trackName}"));
+
+        string? error = await OriginalSoundtrackManager.ImportFromFolderAsync(
+            selectedPath, Tracks.ToList(), progress);
+
+        if (error is not null)
+        {
+            AppendLog($"[WARN] {error}");
+            MessageBox.Show(error, "Import Original Soundtrack", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        else
+        {
+            int count = Tracks.Count(t => t.HasOriginal);
+            AppendLog($"Original soundtrack imported: {count} track(s) available for preview.");
+        }
+    }
+
+    private async Task ImportOriginalsFromZip()
+    {
+        var dlg = new OpenFileDialog
+        {
+            Title = "Select ZIP containing original ALttP soundtrack",
+            Filter = "ZIP Archives (*.zip)|*.zip|All Files (*.*)|*.*",
+            CheckFileExists = true
+        };
+
+        if (dlg.ShowDialog(this) != true) return;
+
+        AppendLog("Importing original soundtrack from ZIP…");
+        var progress = new Progress<(int current, int total, string trackName)>(p =>
+            AppendLog($"  Converting {p.current}/{p.total}: {p.trackName}"));
+
+        string? error = await OriginalSoundtrackManager.ImportFromZipAsync(
+            dlg.FileName, Tracks.ToList(), progress);
+
+        if (error is not null)
+        {
+            AppendLog($"[WARN] {error}");
+            MessageBox.Show(error, "Import Original Soundtrack", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        else
+        {
+            int count = Tracks.Count(t => t.HasOriginal);
+            AppendLog($"Original soundtrack imported: {count} track(s) available for preview.");
+        }
+    }
+
+    private async Task ImportOriginalsFromUrl()
+    {
+        var inputDialog = new Window
+        {
+            Title = "Import from URL",
+            Width = 500, Height = 160,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            Owner = this,
+            ResizeMode = ResizeMode.NoResize,
+            Background = FindResource("BgBrush") as Brush,
+            Foreground = FindResource("TextBrush") as Brush
+        };
+
+        var stack = new StackPanel { Margin = new Thickness(16) };
+        stack.Children.Add(new System.Windows.Controls.TextBlock
+        {
+            Text = "Enter URL to a ZIP file containing original soundtrack MP3s:",
+            Margin = new Thickness(0, 0, 0, 8),
+            Foreground = FindResource("TextBrush") as Brush
+        });
+        var urlBox = new System.Windows.Controls.TextBox
+        {
+            Style = FindResource("DarkTextBox") as Style,
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        stack.Children.Add(urlBox);
+        var btnPanel = new StackPanel { Orientation = System.Windows.Controls.Orientation.Horizontal, HorizontalAlignment = System.Windows.HorizontalAlignment.Right };
+        var okBtn = new Button { Content = "Download & Import", Style = FindResource("AccentButton") as Style, Padding = new Thickness(12, 6, 12, 6), Margin = new Thickness(0, 0, 8, 0) };
+        var cancelBtn = new Button { Content = "Cancel", Style = FindResource("DarkButton") as Style, Padding = new Thickness(12, 6, 12, 6) };
+        okBtn.Click += (_, _) => { inputDialog.DialogResult = true; inputDialog.Close(); };
+        cancelBtn.Click += (_, _) => { inputDialog.DialogResult = false; inputDialog.Close(); };
+        btnPanel.Children.Add(okBtn);
+        btnPanel.Children.Add(cancelBtn);
+        stack.Children.Add(btnPanel);
+        inputDialog.Content = stack;
+
+        if (inputDialog.ShowDialog() != true || string.IsNullOrWhiteSpace(urlBox.Text)) return;
+
+        AppendLog($"Downloading original soundtrack from URL…");
+        var progress = new Progress<(int current, int total, string trackName)>(p =>
+            AppendLog($"  Converting {p.current}/{p.total}: {p.trackName}"));
+
+        string? error = await OriginalSoundtrackManager.ImportFromUrlAsync(
+            urlBox.Text.Trim(), Tracks.ToList(), Http, progress);
+
+        if (error is not null)
+        {
+            AppendLog($"[WARN] {error}");
+            MessageBox.Show(error, "Import Original Soundtrack", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        else
+        {
+            int count = Tracks.Count(t => t.HasOriginal);
+            AppendLog($"Original soundtrack imported: {count} track(s) available for preview.");
+        }
+    }
+
+    private async Task ExportOriginalsAsPack()
+    {
+        var playlist = new Playlist
+        {
+            Name = "Vanilla ALttP Soundtrack",
+            Tracks = Tracks
+                .Where(t => t.OriginalPcmPath is not null)
+                .ToDictionary(t => t.SlotNumber.ToString(), t => t.OriginalPcmPath!)
+        };
+
+        var dlg = new SaveFileDialog
+        {
+            Title = "Export Original Soundtrack as Pack",
+            Filter = "LTTP Pack (*.lttppack)|*.lttppack|All Files (*.*)|*.*",
+            DefaultExt = ".lttppack",
+            FileName = "Vanilla ALttP Soundtrack"
+        };
+
+        if (dlg.ShowDialog(this) != true) return;
+
+        var (result, error) = await Task.Run(() => PlaylistBundleManager.Export(dlg.FileName, playlist));
+
+        if (error is not null)
+        {
+            AppendLog($"[ERROR] Export failed: {error}");
+            MessageBox.Show(error, "Export Failed", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+        else
+        {
+            AppendLog($"Original soundtrack exported: {result!.TracksWritten} track(s) → {dlg.FileName}");
         }
     }
 

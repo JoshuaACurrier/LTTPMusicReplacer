@@ -11,7 +11,9 @@ A Windows desktop utility for enhancing **A Link to the Past Randomizer** runs. 
 ## Features
 
 ### Music
-- **61-slot track list** — all ALttP music slots listed by name, including extended dungeon and boss tracks
+- **61-slot track list** — all ALttP music slots listed by name, including extended dungeon and boss tracks; each slot shows a **[SFX]** or **[EXT]** badge so you can see at a glance which are jingles, extended/optional, or full music tracks
+- **Original soundtrack preview** — import the original ALttP soundtrack (MP3, WAV, FLAC, etc.) from a folder, ZIP, or URL; files are auto-matched to the correct slots by name or number and converted to MSU-1 PCM; click **♪** on any track to hear the original for comparison
+- **Smart track matching** — handles common OST releases (including the Internet Archive soundtrack) with an alias table that maps names like "Hyrule Field Main Theme" → Light World, "Dark Golden Land" → Dark World, etc.; also matches by track number and fuzzy name
 - **Music Library** — a dedicated `MusicLibrary/` folder next to the app stores all your audio files in one place; songs appear in a per-slot picker popup with instant preview
 - **Per-slot library picker** — click **Library** on any track row to open a popup of all your songs; hit ▶ to audition before assigning; single-click assigns to the slot
 - **Audio conversion built-in** — import MP3, WAV, WMA, AAC, M4A, AIFF, and more; files are converted to MSU-1 PCM automatically and cached so the same file is never converted twice
@@ -255,6 +257,7 @@ LTTPEnhancementTools/
 │   ├── FavoritesManager.cs       # Persist sprite favorites
 │   ├── AppSettings.cs            # App-level settings (library/output paths)
 │   ├── SettingsManager.cs        # Persist AppSettings to %LocalAppData%
+│   ├── OriginalSoundtrackManager.cs # Import/match/convert/cache original OST
 │   ├── LaunchSettings.cs         # Launch settings (emulator, SNI, tracker)
 │   └── LaunchSettingsManager.cs  # Persist LaunchSettings to %LocalAppData%
 ├── Converters/

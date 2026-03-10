@@ -279,6 +279,8 @@
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Button Grid.Column="0"
                                     Content="{Binding MusicExpandIcon}"
@@ -327,6 +329,16 @@
                                     Margin="4,0,0,0"
                                     Click="ImportPack_Click"
                                     ToolTip="Extract and load a .lttppack archive"/>
+                            <Border Grid.Column="8"
+                                    Width="1"
+                                    Background="{StaticResource BorderBrush}"
+                                    Margin="8,2"/>
+                            <Button Grid.Column="9"
+                                    Content="Import Originals…"
+                                    Style="{StaticResource DarkButton}"
+                                    Padding="8,4"
+                                    Click="ImportOriginals_Click"
+                                    ToolTip="Import the original ALttP soundtrack (MP3 folder, ZIP, or URL). Files should be numbered 01–61 or named to match tracks. Search for 'A Link to the Past original soundtrack MP3'."/>
                         </Grid>
 
                         <!-- Expandable: Track list -->
@@ -400,12 +412,27 @@
                                             <DataGridTemplateColumn Header="Track" Width="200" CanUserResize="True">
                                                 <DataGridTemplateColumn.CellTemplate>
                                                     <DataTemplate DataType="{x:Type models:TrackSlot}">
-                                                        <TextBlock Text="{Binding Name}"
-                                                                   FontSize="13" FontWeight="Medium"
-                                                                   Foreground="{StaticResource TextBrush}"
-                                                                   VerticalAlignment="Center"
-                                                                   TextTrimming="CharacterEllipsis"
-                                                                   ToolTip="{Binding Name}"/>
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <Button Visibility="{Binding HasOriginal, Converter={StaticResource BoolToVis}}"
+                                                                    Content="{Binding OriginalPlayButtonText}"
+                                                                    Style="{StaticResource IconButton}"
+                                                                    Margin="0,0,4,0"
+                                                                    CommandParameter="{Binding}"
+                                                                    Click="PlayOriginal_Click"
+                                                                    ToolTip="Preview original soundtrack"/>
+                                                            <TextBlock Text="{Binding Name}"
+                                                                       FontSize="13" FontWeight="Medium"
+                                                                       Foreground="{StaticResource TextBrush}"
+                                                                       VerticalAlignment="Center"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       ToolTip="{Binding Name}"/>
+                                                            <TextBlock Text="{Binding TypeLabel}"
+                                                                       Visibility="{Binding HasTypeLabel, Converter={StaticResource BoolToVis}}"
+                                                                       FontSize="10" FontWeight="Bold"
+                                                                       Foreground="#888888"
+                                                                       VerticalAlignment="Center"
+                                                                       Margin="4,0,0,0"/>
+                                                        </StackPanel>
                                                     </DataTemplate>
                                                 </DataGridTemplateColumn.CellTemplate>
                                             </DataGridTemplateColumn>
