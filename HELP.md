@@ -16,13 +16,13 @@ Download `LTTPEnhancementToolsSetup-*-win64.exe` from the [Releases](../../relea
 You can also just download `LTTPEnhancementTools.exe` and run it directly without installing.
 
 ### What happens on first launch?
-A **setup wizard** appears. It walks you through four steps:
-1. Introduction
-2. Select your **emulator** (e.g. `EmuHawk.exe` for BizHawk)
-3. Select your **Archipelago Lua connector script** (optional — only needed for Archipelago randomizer)
-4. Select **SNI.exe** and choose a **community tracker**
+A **setup wizard** appears. It walks you through configuring:
+1. Your **base ROM** (vanilla ALttP `.sfc` — used to generate patched ROMs from `.aplttp` files)
+2. Your **emulator** (e.g. `EmuHawk.exe` for BizHawk)
+3. Your **Archipelago Lua connector script** (typically `connector_bizhawk_emuHawk.lua`)
+4. **SNI.exe** and a **community tracker** (Archipelago built-in, Dunka's, or alttprtracker.com)
 
-You can skip any step and configure them later from the Launch Settings panel. Re-run the wizard any time with **⚙ Run Setup Wizard…**.
+You can skip any step and configure them later from the Auto Launcher settings panel. Re-run the wizard any time with **⚙ Run Setup Wizard…**.
 
 ---
 
@@ -169,7 +169,6 @@ Open an issue or pull request on [GitHub](../../issues). Please include the cras
 | `MusicLibrary/_cache/` | Converted PCM files (auto-generated) |
 | `MusicLibrary/Playlists/` | Saved playlist `.json` files |
 | `MusicLibrary/Imported/<name>/` | PCM files extracted from `.lttppack` imports |
-| `Output/` | Generated ROM + MSU + PCM packs |
 | `%LocalAppData%\LTTPEnhancementTools\` | App settings, crash log, sprite cache |
 | `%LocalAppData%\LTTPEnhancementTools\SpriteCache\` | Cached `.zspr` sprite files |
 | `%LocalAppData%\LTTPEnhancementTools\SpriteCache\Previews\` | Cached preview thumbnails |

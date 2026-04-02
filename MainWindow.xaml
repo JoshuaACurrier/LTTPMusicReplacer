@@ -531,6 +531,7 @@
                                       Margin="0,0,6,0"
                                       SelectionChanged="TrackerCombo_SelectionChanged">
                                 <ComboBoxItem Content="(none)" Tag=""/>
+                                <ComboBoxItem Content="Archipelago Built-in Tracker" Tag="https://archipelago.gg/tracker"/>
                                 <ComboBoxItem Content="Dunka's Community Tracker" Tag="https://alttprtracker.mfns.dev/"/>
                                 <ComboBoxItem Content="alttprtracker.com" Tag="https://alttprtracker.com/"/>
                             </ComboBox>

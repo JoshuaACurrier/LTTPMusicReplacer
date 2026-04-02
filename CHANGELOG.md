@@ -6,13 +6,21 @@ All notable changes to Archipelago LTTP Enhancer (formerly ALttP Enhancement Too
 
 ## [3.0.0] — 2026-04-01
 
+### Added
+- **Built-in bsdiff4 patch application** — the tool now generates the `.sfc` ROM directly from your `.aplttp` patch file using your base ROM; no need to open patches in Archipelago Launcher first
+- **Base ROM configuration** — configure your vanilla ALttP ROM path once in Auto Launcher settings; validated via MD5 checksum from the patch metadata; prompted on first use
+- **`.aplttp` patch loading** — open your Archipelago patch file directly; extracts player name, server address, and game metadata
+- **Archipelago built-in tracker** — added as a third tracker option alongside Dunka's and alttprtracker.com
+- **17 new unit tests** — ArchipelagoPatchReader tests (9) for `.aplttp` parsing and error paths; ApplyEngine tests (8) for InPlace mode and `.msu` logic; total suite now at 59 tests
+
 ### Changed
 - **Rebranded to Archipelago LTTP Enhancer** — the tool is now focused on enhancing Archipelago LTTP runs
-- **`.aplttp` patch loading** — open your Archipelago patch file directly; extracts player name, server address, and game metadata; auto-locates the generated `.sfc` ROM
 - **In-place enhancement** — sprite patches the ROM directly and MSU files are written next to it; no more separate output folder
-- **Combined Enhance & Launch** — single button replaces Apply ROM + Auto Launch; applies music + sprite then launches SNI, Archipelago Launcher, tracker, and emulator
+- **Combined Enhance & Launch** — single button replaces Apply ROM + Auto Launch; applies music + sprite then launches SNI client, tracker, and emulator
+- **SNI client launch** — launches `ArchipelagoSNIClient.exe` directly instead of the full Archipelago Launcher, avoiding file permission conflicts
 - **Server auto-fill** — Room ID is populated from patch metadata
 - **Session persistence** — last patch file is remembered and restored on next launch
+- **`.msu` marker** — only created when music tracks are assigned (sprite-only apply no longer creates an empty `.msu`)
 
 ### Removed
 - Output Name textbox (auto-derived from patch filename)
